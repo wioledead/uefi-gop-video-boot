@@ -1,0 +1,23 @@
+# User media & generated heavy frames (copyright-free repo)
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.wav
+raw_download*
+src/video_frames.h
+tools/download_clip.py
+
+# Build artifacts & UEFI binaries
+*.o
+*.obj
+*.efi
+efi/
+efi-signed/
+
+# Python virtual environments & caches
+.venv/
+venv/
+__pycache__/
+*.pyc

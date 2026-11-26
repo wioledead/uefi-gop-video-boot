@@ -1,0 +1,2 @@
+# Boot loader path. MS = either \EFI\HackBGRT\bootmgfw-original.efi or \EFI\Microsoft\Boot\bootmgfw.efi
+boot=MS
