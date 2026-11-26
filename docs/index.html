@@ -3,491 +3,690 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>UEFI GOP Video Workbench — uefi-gop-video-boot</title>
+  <title>GOP Video Studio — uefi-gop-video-boot</title>
   <style>
     :root {
-      --bg-chassis: #080a0e;
-      --bg-panel: #0d1117;
-      --bg-input: #121821;
-      --bg-elevated: #171f2b;
-      --line: #1f2937;
-      --line-strong: #2d3b4e;
-      --fg-primary: #e6edf5;
-      --fg-secondary: #8d9db3;
-      --fg-muted: #5d6d82;
-      --accent: #3ee08f;
-      --accent-dim: rgba(62, 224, 143, 0.14);
-      --amber: #f0b43a;
-      --danger: #f26464;
-      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+      --bg-studio: #070709;
+      --material-thick: rgba(28, 28, 32, 0.74);
+      --material-regular: rgba(38, 38, 43, 0.64);
+      --material-control: rgba(255, 255, 255, 0.065);
+      --material-control-hover: rgba(255, 255, 255, 0.105);
+      --material-pill: rgba(255, 255, 255, 0.19);
+      --rim-specular: rgba(255, 255, 255, 0.16);
+      --rim-subtle: rgba(255, 255, 255, 0.075);
+      --separator: rgba(255, 255, 255, 0.08);
+
+      --label-primary: rgba(245, 245, 247, 0.96);
+      --label-secondary: rgba(235, 235, 245, 0.62);
+      --label-tertiary: rgba(235, 235, 245, 0.38);
+
+      --tint-blue: #0a84ff;
+      --tint-green: #30d158;
+      --tint-amber: #ff9f0a;
+      --tint-red: #ff453a;
+
+      --cta-bg: #f5f5f7;
+      --cta-ink: #09090b;
+
+      --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+      --radius-window: 20px;
+      --radius-card: 14px;
+      --radius-control: 9px;
+      --radius-pill: 999px;
     }
 
-    * {
+    *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-tap-highlight-color: transparent;
     }
 
     ::selection {
-      background: var(--accent);
-      color: var(--bg-chassis);
+      background: rgba(10, 132, 255, 0.35);
+      color: #fff;
     }
 
     ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
     }
     ::-webkit-scrollbar-track {
-      background: var(--bg-chassis);
+      background: transparent;
     }
     ::-webkit-scrollbar-thumb {
-      background: var(--line-strong);
-      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
     }
 
     html, body {
       min-height: 100%;
-      background: var(--bg-chassis);
-      color: var(--fg-primary);
-      font-family: var(--font-sans);
+      background: var(--bg-studio);
+      color: var(--label-primary);
+      font-family: var(--font-ui);
       font-size: 14px;
-      line-height: 1.5;
+      line-height: 1.45;
+      font-optical-sizing: auto;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
     :focus-visible {
-      outline: 2px solid var(--accent);
+      outline: 2px solid var(--tint-blue);
       outline-offset: 2px;
     }
 
-    /* Header bar */
-    .topbar {
+    /* Translucent top navigation bar */
+    .nav-bar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      padding: 12px 20px;
-      background: var(--bg-panel);
-      border-bottom: 1px solid var(--line);
+      padding: 0.75rem 1.5rem;
+      background: rgba(12, 12, 15, 0.68);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      box-shadow: inset 0 -0.5px 0 var(--rim-subtle);
     }
 
-    .brand {
+    .nav-title-group {
       display: flex;
       align-items: baseline;
-      gap: 12px;
+      gap: 0.65rem;
       min-width: 0;
     }
 
-    .brand h1 {
-      font-family: var(--font-mono);
-      font-size: 15px;
+    .nav-title {
+      font-size: 1.05rem;
       font-weight: 600;
       letter-spacing: -0.02em;
-      color: var(--fg-primary);
+      line-height: 1.2;
+      color: var(--label-primary);
       white-space: nowrap;
     }
 
-    .brand-sub {
-      color: var(--fg-secondary);
-      font-size: 13px;
+    .nav-subtitle {
+      font-size: 0.82rem;
+      font-weight: 400;
+      letter-spacing: -0.005em;
+      color: var(--label-secondary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .topbar-links {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
-    .link-btn {
+    .nav-link {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 6px 12px;
-      border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      background: var(--bg-input);
-      color: var(--fg-primary);
+      gap: 0.45rem;
+      padding: 0.38rem 0.8rem;
+      border-radius: var(--radius-pill);
+      background: var(--material-control);
+      box-shadow: inset 0 0.5px 0 var(--rim-specular), 0 0 0 0.5px var(--rim-subtle);
+      color: var(--label-primary);
       text-decoration: none;
-      font-size: 13px;
+      font-size: 0.8125rem;
       font-weight: 500;
-      transition: border-color 140ms ease, background 140ms ease;
+      letter-spacing: -0.005em;
+      user-select: none;
+      transition: background 140ms ease;
     }
 
-    .link-btn:hover {
-      border-color: var(--fg-secondary);
-      background: var(--bg-elevated);
+    .nav-link:hover {
+      background: var(--material-control-hover);
     }
 
-    /* Main workbench grid */
-    .workbench {
+    .pressable {
+      will-change: transform;
+      user-select: none;
+    }
+
+    /* Studio layout */
+    .studio-shell {
+      position: relative;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 1.5rem;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
-      min-height: calc(100vh - 55px);
+      grid-template-columns: minmax(0, 1fr) 348px;
+      gap: 1.5rem;
+      align-items: start;
     }
 
-    /* Left viewport column */
-    .stage-col {
+    /* Cinema display stage */
+    .cinema-stage {
+      position: relative;
       display: flex;
       flex-direction: column;
-      padding: 20px;
-      gap: 16px;
-      border-right: 1px solid var(--line);
+      gap: 1rem;
     }
 
-    .monitor-frame {
+    .display-housing {
       position: relative;
       width: 100%;
       aspect-ratio: 16 / 9;
-      max-height: 70vh;
-      margin: 0 auto;
+      border-radius: var(--radius-window);
       background: #000;
-      border: 1px solid var(--line-strong);
-      border-radius: 6px;
+      box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.72),
+        0 4px 16px rgba(0, 0, 0, 0.45),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.11);
       overflow: hidden;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      isolation: isolate;
     }
 
-    .monitor-frame.drag-active {
-      border-color: var(--accent);
+    /* Subtle ambient backlight cast behind the display */
+    .ambient-canvas {
+      position: absolute;
+      inset: -12%;
+      width: 124%;
+      height: 124%;
+      filter: blur(68px) saturate(160%);
+      opacity: 0.32;
+      pointer-events: none;
+      z-index: -1;
     }
 
     #gopCanvas {
       width: 100%;
       height: 100%;
+      display: block;
       object-fit: contain;
       image-rendering: pixelated;
-      display: block;
     }
 
-    .drop-veil {
+    /* Drop invitation veil */
+    .drop-overlay {
       position: absolute;
-      inset: 0;
-      background: rgba(8, 10, 14, 0.86);
+      inset: 0.75rem;
+      border-radius: calc(var(--radius-window) - 6px);
+      background: rgba(18, 18, 22, 0.78);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: inset 0 0 0 1.5px rgba(10, 132, 255, 0.75);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      pointer-events: none;
+      gap: 0.45rem;
       opacity: 0;
-      transition: opacity 120ms ease;
+      transform: scale(0.985);
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
     }
 
-    .monitor-frame.drag-active .drop-veil {
+    .display-housing.is-dragging .drop-overlay {
       opacity: 1;
+      transform: scale(1);
     }
 
-    .drop-veil span {
-      font-family: var(--font-mono);
-      color: var(--accent);
-      font-size: 14px;
+    .drop-overlay-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--label-primary);
     }
 
-    /* Transport bar */
-    .transport {
+    .drop-overlay-sub {
+      font-size: 0.8rem;
+      color: var(--label-secondary);
+    }
+
+    /* Floating QuickTime-style translucent controller */
+    .floating-transport {
+      position: absolute;
+      left: 50%;
+      bottom: 1rem;
+      transform: translateX(-50%);
+      width: min(560px, calc(100% - 2rem));
+      padding: 0.55rem 0.85rem;
+      border-radius: 15px;
+      background: rgba(26, 26, 30, 0.68);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      box-shadow:
+        0 14px 36px rgba(0, 0, 0, 0.55),
+        inset 0 0.5px 0 rgba(255, 255, 255, 0.24),
+        0 0 0 0.5px rgba(255, 255, 255, 0.1);
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      background: var(--bg-panel);
-      border: 1px solid var(--line);
-      border-radius: 6px;
+      gap: 0.7rem;
+      transition: opacity 260ms ease;
     }
 
-    .icon-btn {
+    .transport-btn {
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: var(--radius-pill);
+      background: transparent;
+      color: var(--label-primary);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
-      border: 1px solid var(--line-strong);
-      border-radius: 5px;
-      background: var(--bg-input);
-      color: var(--fg-primary);
       cursor: pointer;
+      flex-shrink: 0;
+      transition: background 120ms ease;
+    }
+
+    .transport-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* Custom tactile scrub bar & slider track */
+    .apple-slider {
+      position: relative;
+      flex: 1;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .apple-slider-track {
+      position: relative;
+      width: 100%;
+      height: 5px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.16);
+      overflow: hidden;
+      will-change: transform;
+    }
+
+    .apple-slider-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.88);
+    }
+
+    .apple-slider-thumb {
+      position: absolute;
+      top: 50%;
+      left: 0%;
+      width: 14px;
+      height: 14px;
+      margin-left: -7px;
+      margin-top: -7px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+      pointer-events: none;
+      will-change: transform, left;
+    }
+
+    .time-pill {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: var(--label-secondary);
+      font-variant-numeric: tabular-nums;
+      min-width: 92px;
+      text-align: right;
       flex-shrink: 0;
     }
 
-    .icon-btn:hover {
-      background: var(--bg-elevated);
-      border-color: var(--fg-secondary);
+    /* Quiet inline caption below cinema display */
+    .stage-caption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0 0.35rem;
+      color: var(--label-secondary);
+      font-size: 0.8125rem;
     }
 
-    .scrubber {
-      flex: 1;
-      accent-color: var(--accent);
-      cursor: pointer;
-      height: 4px;
+    .status-dot-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
     }
 
-    .timecode {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--fg-secondary);
-      font-variant-numeric: tabular-nums;
-      min-width: 122px;
-      text-align: right;
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--tint-green);
+      flex-shrink: 0;
     }
 
-    /* Telemetry readout strip */
-    .telemetry-strip {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: var(--bg-panel);
+    .status-dot.is-error {
+      background: var(--tint-red);
+    }
+
+    #sourceStatus {
+      white-space: nowrap;
       overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .metric {
-      padding: 10px 14px;
-      border-right: 1px solid var(--line);
-    }
-
-    .metric:last-child {
-      border-right: none;
-    }
-
-    .metric-label {
-      font-size: 12px;
-      color: var(--fg-secondary);
-      margin-bottom: 2px;
-    }
-
-    .metric-val {
-      font-family: var(--font-mono);
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--fg-primary);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .metric-val.highlight {
-      color: var(--accent);
-    }
-
-    /* Right control column */
-    .inspector {
-      background: var(--bg-panel);
+    /* Right Inspector Sheet (macOS Vibrancy Sidebar) */
+    .inspector-sheet {
+      border-radius: var(--radius-window);
+      background: var(--material-thick);
+      backdrop-filter: blur(32px) saturate(190%);
+      -webkit-backdrop-filter: blur(32px) saturate(190%);
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.5),
+        inset 0 0.5px 0 var(--rim-specular),
+        0 0 0 0.5px var(--rim-subtle);
+      padding: 1.15rem;
       display: flex;
       flex-direction: column;
+      gap: 1.15rem;
     }
 
-    .panel-section {
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--line);
+    .group-block {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 0.55rem;
     }
 
-    .panel-section h2 {
-      font-size: 13px;
+    .group-heading {
+      font-size: 0.8125rem;
       font-weight: 600;
-      color: var(--fg-primary);
-      letter-spacing: -0.01em;
+      letter-spacing: -0.008em;
+      color: var(--label-primary);
+      padding: 0 0.15rem;
     }
 
-    .source-actions {
+    .inset-surface {
+      background: rgba(255, 255, 255, 0.042);
+      border-radius: var(--radius-card);
+      box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.06), 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+      padding: 0.7rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    /* Source buttons */
+    .pill-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 0.45rem;
     }
 
-    .btn {
+    .soft-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      background: var(--bg-input);
-      color: var(--fg-primary);
-      font-family: var(--font-sans);
-      font-size: 13px;
+      gap: 0.45rem;
+      padding: 0.48rem 0.75rem;
+      border: none;
+      border-radius: var(--radius-control);
+      background: var(--material-control);
+      box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.1);
+      color: var(--label-primary);
+      font-family: var(--font-ui);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      cursor: pointer;
+      transition: background 140ms ease;
+    }
+
+    .soft-btn:hover:not(:disabled) {
+      background: var(--material-control-hover);
+    }
+
+    .soft-btn.is-selected {
+      background: rgba(10, 132, 255, 0.22);
+      box-shadow: inset 0 0 0 1px rgba(10, 132, 255, 0.55);
+      color: #fff;
+    }
+
+    .url-field-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(0, 0, 0, 0.32);
+      border-radius: var(--radius-control);
+      padding: 0.22rem 0.25rem 0.22rem 0.65rem;
+      box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+    }
+
+    .url-field-wrap:focus-within {
+      box-shadow: inset 0 0 0 1.5px var(--tint-blue);
+    }
+
+    .url-input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: var(--label-primary);
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      outline: none;
+    }
+
+    .url-input::placeholder {
+      color: var(--label-tertiary);
+    }
+
+    .url-go-btn {
+      border: none;
+      border-radius: 7px;
+      padding: 0.3rem 0.65rem;
+      background: var(--material-control);
+      color: var(--label-primary);
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
       font-weight: 500;
       cursor: pointer;
-      transition: background 120ms ease, border-color 120ms ease;
     }
 
-    .btn:hover:not(:disabled) {
-      background: var(--bg-elevated);
-      border-color: var(--fg-secondary);
+    .url-go-btn:hover {
+      background: var(--material-control-hover);
     }
 
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    /* Physics-driven Apple Segmented Control */
+    .apple-segmented {
+      position: relative;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      padding: 3px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.36);
+      box-shadow: inset 0 0.5px 2px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(255, 255, 255, 0.06);
+      isolation: isolate;
+      user-select: none;
     }
 
-    .btn-primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #06110b;
+    .seg-thumb {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      left: 3px;
+      width: 0px;
+      border-radius: 7.5px;
+      background: var(--material-pill);
+      box-shadow:
+        0 2px 6px rgba(0, 0, 0, 0.34),
+        inset 0 0.5px 0 rgba(255, 255, 255, 0.28);
+      z-index: 0;
+      pointer-events: none;
+      will-change: transform, width;
+    }
+
+    .seg-option {
+      position: relative;
+      z-index: 1;
+      border: none;
+      background: transparent;
+      color: var(--label-secondary);
+      padding: 0.36rem 0.4rem;
+      font-family: var(--font-ui);
+      font-size: 0.79rem;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 7.5px;
+      transition: color 150ms ease;
+      white-space: nowrap;
+    }
+
+    .seg-option[aria-checked="true"] {
+      color: var(--label-primary);
       font-weight: 600;
     }
 
-    .btn-primary:hover:not(:disabled) {
-      background: #57e89f;
-      border-color: #57e89f;
-    }
-
-    .btn-active-source {
-      border-color: var(--accent);
-      background: var(--accent-dim);
-    }
-
-    .url-row {
-      display: flex;
-      gap: 6px;
-    }
-
-    .text-input {
-      flex: 1;
-      min-width: 0;
-      padding: 7px 10px;
-      border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      background: var(--bg-chassis);
-      color: var(--fg-primary);
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    .text-input::placeholder {
-      color: var(--fg-muted);
-    }
-
-    .status-note {
-      font-size: 12px;
-      color: var(--fg-secondary);
-      min-height: 18px;
-    }
-
-    .status-note.err {
-      color: var(--danger);
-    }
-
-    .status-note.ok {
-      color: var(--accent);
-    }
-
-    /* Segmented controls */
-    .seg-group {
-      display: grid;
-      gap: 6px;
-    }
-
-    .seg-3 {
-      grid-template-columns: repeat(3, 1fr);
-    }
-
-    .seg-stack {
-      grid-template-columns: 1fr;
-    }
-
-    .seg-btn {
-      padding: 7px 10px;
-      border: 1px solid var(--line);
-      border-radius: 5px;
-      background: var(--bg-chassis);
-      color: var(--fg-secondary);
-      font-size: 12.5px;
-      font-weight: 500;
-      text-align: left;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .seg-3 .seg-btn {
-      justify-content: center;
-      text-align: center;
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    .seg-btn:hover {
-      border-color: var(--line-strong);
-      color: var(--fg-primary);
-    }
-
-    .seg-btn[aria-pressed="true"] {
-      border-color: var(--accent);
-      background: var(--accent-dim);
-      color: var(--fg-primary);
-    }
-
-    .seg-tag {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--fg-muted);
-    }
-
-    .seg-btn[aria-pressed="true"] .seg-tag {
-      color: var(--accent);
-    }
-
-    /* Sliders */
-    .field-row {
+    /* Parameter rows inside inset surface */
+    .param-item {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 0.32rem;
     }
 
-    .field-head {
+    .param-header {
       display: flex;
+      align-items: baseline;
       justify-content: space-between;
-      font-size: 12.5px;
-      color: var(--fg-secondary);
+      font-size: 0.8rem;
     }
 
-    .field-head output {
+    .param-label {
+      color: var(--label-secondary);
+    }
+
+    .param-value {
       font-family: var(--font-mono);
-      color: var(--fg-primary);
+      font-size: 0.76rem;
+      color: var(--label-primary);
       font-variant-numeric: tabular-nums;
     }
 
-    input[type="range"] {
-      width: 100%;
-      accent-color: var(--accent);
-      cursor: pointer;
+    .hairline {
+      height: 0.5px;
+      background: var(--separator);
+      margin: 0.1rem 0;
     }
 
-    /* Export section */
-    .export-stack {
+    /* Clean Inspector Key-Value Readout */
+    .kv-list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 0.45rem;
     }
 
-    .progress-wrap {
-      height: 5px;
-      background: var(--bg-chassis);
-      border-radius: 3px;
+    .kv-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-size: 0.8125rem;
+    }
+
+    .kv-key {
+      color: var(--label-secondary);
+    }
+
+    .kv-val {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--label-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .kv-val.accent {
+      color: #64d2ff;
+      font-weight: 600;
+    }
+
+    /* Export buttons */
+    .export-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.15rem;
+    }
+
+    .cta-primary {
+      position: relative;
       overflow: hidden;
-      display: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.68rem 1rem;
+      border: none;
+      border-radius: 11px;
+      background: var(--cta-bg);
+      color: var(--cta-ink);
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+      transition: opacity 140ms ease;
     }
 
-    .progress-wrap.visible {
-      display: block;
+    .cta-primary:disabled {
+      cursor: default;
     }
 
-    .progress-bar {
-      height: 100%;
+    .cta-progress-fill {
+      position: absolute;
+      inset: 0;
       width: 0%;
-      background: var(--accent);
-      transition: width 80ms linear;
+      background: rgba(10, 132, 255, 0.22);
+      pointer-events: none;
+      transition: width 90ms linear;
+    }
+
+    .cta-secondary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 11px;
+      background: var(--material-control);
+      box-shadow: inset 0 0.5px 0 var(--rim-specular), 0 0 0 0.5px var(--rim-subtle);
+      color: var(--label-primary);
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      cursor: pointer;
+      transition: background 140ms ease;
+    }
+
+    .cta-secondary:hover {
+      background: var(--material-control-hover);
+    }
+
+    .export-caption {
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: var(--label-tertiary);
+      letter-spacing: 0.005em;
+      padding: 0 0.15rem;
+      min-height: 1.1rem;
+    }
+
+    .export-caption.is-ok {
+      color: var(--tint-green);
+    }
+
+    .export-caption.is-err {
+      color: var(--tint-red);
     }
 
     svg.ico {
@@ -501,183 +700,218 @@
       flex-shrink: 0;
     }
 
-    @media (max-width: 1024px) {
-      .workbench {
+    @media (max-width: 980px) {
+      .studio-shell {
         grid-template-columns: 1fr;
+        padding: 1rem;
       }
-      .stage-col {
-        border-right: none;
-        border-bottom: 1px solid var(--line);
+      .nav-subtitle {
+        display: none;
       }
-      .telemetry-strip {
-        grid-template-columns: repeat(2, 1fr);
+      .floating-transport {
+        position: static;
+        transform: none;
+        width: 100%;
+        margin-top: 0.5rem;
       }
-      .metric:nth-child(2), .metric:nth-child(4) {
-        border-right: none;
+    }
+
+    @media (prefers-reduced-transparency: reduce) {
+      .nav-bar, .inspector-sheet, .floating-transport, .drop-overlay {
+        background: #1c1c1e;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
       }
-      .metric {
-        border-bottom: 1px solid var(--line);
+      .ambient-canvas {
+        display: none;
+      }
+    }
+
+    @media (prefers-contrast: more) {
+      .inspector-sheet, .floating-transport, .inset-surface, .nav-link, .cta-secondary {
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.42);
+      }
+      :root {
+        --label-secondary: rgba(245, 245, 247, 0.85);
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
-        transition: none !important;
+        transition-duration: 0.01ms !important;
       }
     }
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <h1>uefi-gop-video-boot</h1>
-      <span class="brand-sub">Client-side UEFI GOP-&gt;Blt() Temporal-RLE encoder &amp; preview studio</span>
+  <header class="nav-bar">
+    <div class="nav-title-group">
+      <h1 class="nav-title">GOP Video Studio</h1>
+      <span class="nav-subtitle">24-bit UEFI Framebuffer &amp; Temporal-RLE Encoder</span>
     </div>
-    <div class="topbar-links">
-      <a class="link-btn" href="https://github.com/wioledead/uefi-gop-video-boot" target="_blank" rel="noopener">
-        <svg class="ico" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
-        GitHub Repository
-      </a>
-    </div>
+    <a class="nav-link pressable" href="https://github.com/wioledead/uefi-gop-video-boot" target="_blank" rel="noopener">
+      <svg class="ico" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+      <span>Source on GitHub</span>
+    </a>
   </header>
 
-  <main class="workbench">
-    <section class="stage-col" aria-label="Live UEFI framebuffer preview">
-      <div class="monitor-frame" id="dropZone">
+  <main class="studio-shell">
+    <section class="cinema-stage" aria-label="Framebuffer display">
+      <canvas class="ambient-canvas" id="ambientCanvas" width="32" height="18" aria-hidden="true"></canvas>
+
+      <div class="display-housing" id="dropZone">
         <canvas id="gopCanvas" width="960" height="540"></canvas>
-        <div class="drop-veil">
-          <span>Drop video or image (.mp4, .webm, .gif, .png, .jpg)</span>
+
+        <div class="drop-overlay">
+          <div class="drop-overlay-title">Drop Media to Preview</div>
+          <div class="drop-overlay-sub">MP4, WebM, GIF, PNG, or JPEG — processed locally on device</div>
+        </div>
+
+        <div class="floating-transport" id="transportHud">
+          <button class="transport-btn pressable" id="playPauseBtn" type="button" aria-label="Play or pause">
+            <svg class="ico" id="playIcon" viewBox="0 0 24 24"></svg>
+          </button>
+          <button class="transport-btn pressable" id="restartBtn" type="button" aria-label="Replay from start">
+            <svg class="ico" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          </button>
+
+          <div class="apple-slider" id="scrubSlider" role="slider" tabindex="0" aria-label="Timeline position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="apple-slider-track">
+              <div class="apple-slider-fill" id="scrubFill"></div>
+            </div>
+            <div class="apple-slider-thumb" id="scrubThumb"></div>
+          </div>
+
+          <div class="time-pill" id="timeReadout">00:00.0 / 00:06.5</div>
         </div>
       </div>
 
-      <div class="transport">
-        <button class="icon-btn" id="playPauseBtn" type="button" aria-label="Play or pause">
-          <svg class="ico" id="playIcon" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="icon-btn" id="restartBtn" type="button" aria-label="Restart from beginning">
-          <svg class="ico" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-        </button>
-        <input class="scrubber" id="seekBar" type="range" min="0" max="1000" value="0" aria-label="Playback position">
-        <div class="timecode" id="timeReadout">00:00.0 / 00:03.0</div>
-      </div>
-
-      <div class="telemetry-strip" aria-label="Live RLE telemetry">
-        <div class="metric">
-          <div class="metric-label">Grid &amp; 1080p scale</div>
-          <div class="metric-val" id="statGrid">320×180 (6×)</div>
+      <div class="stage-caption">
+        <div class="status-dot-wrap">
+          <span class="status-dot" id="sourceDot"></span>
+          <span id="sourceStatus">Built-in UEFI boot &amp; corridor sequence</span>
         </div>
-        <div class="metric">
-          <div class="metric-label">Frame rate</div>
-          <div class="metric-val" id="statFps">24 FPS</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Runs / frame</div>
-          <div class="metric-val" id="statRuns">—</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Temporal skip</div>
-          <div class="metric-val" id="statSkip">—</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Estimated .efi size</div>
-          <div class="metric-val highlight" id="statEfiSize">—</div>
-        </div>
+        <span>Drag any clip onto the display</span>
       </div>
     </section>
 
-    <aside class="inspector" aria-label="Encoder settings and export">
-      <section class="panel-section">
-        <h2>Media source</h2>
-        <input type="file" id="fileInput" accept=".mp4,.webm,.gif,.png,.jpg,.jpeg,video/*,image/*" hidden>
-        <div class="source-actions">
-          <button class="btn" id="browseBtn" type="button">
-            <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Local file
-          </button>
-          <button class="btn btn-active-source" id="demoBtn" type="button">
-            <svg class="ico" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            Procedural demo
-          </button>
-        </div>
-        <div class="url-row">
-          <input class="text-input" id="urlInput" type="url" placeholder="https://example.com/clip.mp4 (CORS)" aria-label="Direct video or image URL">
-          <button class="btn" id="loadUrlBtn" type="button">Load</button>
-        </div>
-        <div class="status-note" id="sourceStatus">Running built-in UEFI boot &amp; cyber-horizon sequence (6.5s).</div>
-      </section>
-
-      <section class="panel-section">
-        <h2>Render mode</h2>
-        <div class="seg-group seg-stack" role="group" aria-label="Render mode">
-          <button class="seg-btn" type="button" data-mode="gop" aria-pressed="true">
-            <span>UEFI GOP-&gt;Blt() 255-Color + Scanlines</span>
-            <span class="seg-tag">BGR0</span>
-          </button>
-          <button class="seg-btn" type="button" data-mode="blocks" aria-pressed="false">
-            <span>Color Half-Blocks &amp; Stipple</span>
-            <span class="seg-tag">▀ ░▒▓█</span>
-          </button>
-          <button class="seg-btn" type="button" data-mode="ascii" aria-pressed="false">
-            <span>Classic UEFI 16-Color Console</span>
-            <span class="seg-tag">ASCII</span>
-          </button>
-        </div>
-      </section>
-
-      <section class="panel-section">
-        <h2>Codec parameters</h2>
-        <div class="field-row">
-          <div class="field-head"><span>Grid resolution (16:9)</span></div>
-          <div class="seg-group seg-3" role="group" aria-label="Grid resolution">
-            <button class="seg-btn" type="button" data-grid="160x90" aria-pressed="false">160×90</button>
-            <button class="seg-btn" type="button" data-grid="200x112" aria-pressed="false">200×112</button>
-            <button class="seg-btn" type="button" data-grid="320x180" aria-pressed="true">320×180</button>
+    <aside class="inspector-sheet" aria-label="Encoder inspector">
+      <div class="group-block">
+        <h2 class="group-heading">Source</h2>
+        <div class="inset-surface">
+          <input type="file" id="fileInput" accept=".mp4,.webm,.gif,.png,.jpg,.jpeg,video/*,image/*" hidden>
+          <div class="pill-row">
+            <button class="soft-btn pressable" id="browseBtn" type="button">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Choose File…
+            </button>
+            <button class="soft-btn pressable is-selected" id="demoBtn" type="button">
+              Built-in Demo
+            </button>
+          </div>
+          <div class="url-field-wrap">
+            <input class="url-input" id="urlInput" type="url" placeholder="Direct video URL (CORS)…" aria-label="Direct media URL">
+            <button class="url-go-btn pressable" id="loadUrlBtn" type="button">Load</button>
           </div>
         </div>
+      </div>
 
-        <div class="field-row">
-          <div class="field-head"><span>Target frame rate</span></div>
-          <div class="seg-group seg-3" role="group" aria-label="Target FPS">
-            <button class="seg-btn" type="button" data-fps="15" aria-pressed="false">15 FPS</button>
-            <button class="seg-btn" type="button" data-fps="24" aria-pressed="true">24 FPS</button>
-            <button class="seg-btn" type="button" data-fps="30" aria-pressed="false">30 FPS</button>
+      <div class="group-block">
+        <h2 class="group-heading">Appearance</h2>
+        <div class="apple-segmented" data-seg="mode" role="radiogroup" aria-label="Render mode">
+          <div class="seg-thumb"></div>
+          <button class="seg-option" type="button" role="radio" data-val="gop" aria-checked="true">GOP 24-bit</button>
+          <button class="seg-option" type="button" role="radio" data-val="blocks" aria-checked="false">Half-Blocks</button>
+          <button class="seg-option" type="button" role="radio" data-val="ascii" aria-checked="false">16-Color</button>
+        </div>
+      </div>
+
+      <div class="group-block">
+        <h2 class="group-heading">Encoding</h2>
+        <div class="inset-surface">
+          <div class="param-item">
+            <div class="param-header">
+              <span class="param-label">Tile grid</span>
+              <span class="param-value" id="scaleHint">6× exact on 1080p</span>
+            </div>
+            <div class="apple-segmented" data-seg="grid" role="radiogroup" aria-label="Grid size">
+              <div class="seg-thumb"></div>
+              <button class="seg-option" type="button" role="radio" data-val="160x90" aria-checked="false">160×90</button>
+              <button class="seg-option" type="button" role="radio" data-val="200x112" aria-checked="false">200×112</button>
+              <button class="seg-option" type="button" role="radio" data-val="320x180" aria-checked="true">320×180</button>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <div class="param-header">
+              <span class="param-label">Frame rate</span>
+            </div>
+            <div class="apple-segmented" data-seg="fps" role="radiogroup" aria-label="Target frame rate">
+              <div class="seg-thumb"></div>
+              <button class="seg-option" type="button" role="radio" data-val="15" aria-checked="false">15 fps</button>
+              <button class="seg-option" type="button" role="radio" data-val="24" aria-checked="true">24 fps</button>
+              <button class="seg-option" type="button" role="radio" data-val="30" aria-checked="false">30 fps</button>
+            </div>
+          </div>
+
+          <div class="hairline"></div>
+
+          <div class="param-item">
+            <div class="param-header">
+              <span class="param-label">Detail sharpness</span>
+              <span class="param-value" id="sharpOut">0.60</span>
+            </div>
+            <div class="apple-slider" id="sharpSlider" role="slider" tabindex="0" aria-label="Detail sharpness" aria-valuemin="0" aria-valuemax="1.5" aria-valuenow="0.6">
+              <div class="apple-slider-track"><div class="apple-slider-fill"></div></div>
+              <div class="apple-slider-thumb"></div>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <div class="param-header">
+              <span class="param-label">Temporal tolerance</span>
+              <span class="param-value" id="tolOut">10</span>
+            </div>
+            <div class="apple-slider" id="tolSlider" role="slider" tabindex="0" aria-label="Temporal tolerance" aria-valuemin="0" aria-valuemax="26" aria-valuenow="10">
+              <div class="apple-slider-track"><div class="apple-slider-fill"></div></div>
+              <div class="apple-slider-thumb"></div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="field-row">
-          <div class="field-head">
-            <label for="sharpSlider">Unsharp mask strength</label>
-            <output id="sharpOut">0.60</output>
+      <div class="group-block">
+        <h2 class="group-heading">Stream Estimate</h2>
+        <div class="inset-surface kv-list">
+          <div class="kv-row">
+            <span class="kv-key">Estimated .efi binary</span>
+            <span class="kv-val accent" id="statEfiSize">—</span>
           </div>
-          <input id="sharpSlider" type="range" min="0" max="150" value="60">
+          <div class="kv-row">
+            <span class="kv-key">Inter-frame skip</span>
+            <span class="kv-val" id="statSkip">—</span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-key">RLE tokens / frame</span>
+            <span class="kv-val" id="statRuns">—</span>
+          </div>
         </div>
+      </div>
 
-        <div class="field-row">
-          <div class="field-head">
-            <label for="tolSlider">Temporal skip tolerance (RGB)</label>
-            <output id="tolOut">10</output>
-          </div>
-          <input id="tolSlider" type="range" min="0" max="26" value="10">
-        </div>
-      </section>
+      <div class="export-group">
+        <button class="cta-primary pressable" id="exportHeaderBtn" type="button">
+          <div class="cta-progress-fill" id="exportProgressFill"></div>
+          <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span id="exportBtnLabel">Export video_frames.h</span>
+        </button>
 
-      <section class="panel-section">
-        <h2>Export</h2>
-        <div class="export-stack">
-          <button class="btn btn-primary" id="exportHeaderBtn" type="button">
-            <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download video_frames.h (Temporal-RLE)
-          </button>
-          <div class="progress-wrap" id="exportProgressWrap">
-            <div class="progress-bar" id="exportProgressBar"></div>
-          </div>
-          <button class="btn" id="copyAnsiBtn" type="button">
-            <svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy Discord ```ansi frame (&le; 2000 chars)
-          </button>
-        </div>
-        <div class="status-note" id="exportStatus">Generates drop-in C17 header for src/video_frames.h.</div>
-      </section>
+        <button class="cta-secondary pressable" id="copyAnsiBtn" type="button">
+          <svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span id="copyBtnLabel">Copy Frame for Discord</span>
+        </button>
+
+        <div class="export-caption" id="exportStatus">Packs frames into C17 UINT16 Temporal-RLE for src/video_frames.h.</div>
+      </div>
     </aside>
   </main>
 
@@ -687,6 +921,271 @@
     (() => {
       "use strict";
 
+      const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      /* =====================================================================
+       * Apple Fluid Spring Engine (WWDC18 Designing Fluid Interfaces)
+       * Parameterized by dampingRatio (1.0 = critically damped, 0.8 = bouncy)
+       * and response (seconds). Interruptible mid-flight, preserves velocity.
+       * ===================================================================== */
+      class FluidSpring {
+        constructor(initial = 0, { damping = 1.0, response = 0.28 } = {}) {
+          this.x = initial;
+          this.target = initial;
+          this.v = 0;
+          this.damping = damping;
+          this.response = response;
+        }
+        setTarget(t, addVelocity = 0) {
+          this.target = t;
+          this.v += addVelocity;
+          if (prefersReducedMotion()) {
+            this.x = t;
+            this.v = 0;
+          }
+        }
+        snap(val) {
+          this.x = val;
+          this.target = val;
+          this.v = 0;
+        }
+        step(dt) {
+          if (prefersReducedMotion()) {
+            this.x = this.target;
+            this.v = 0;
+            return false;
+          }
+          const clampedDt = Math.min(dt, 0.032);
+          const omega = (2 * Math.PI) / this.response;
+          const k = omega * omega;
+          const c = 2 * this.damping * omega;
+          const disp = this.x - this.target;
+          const accel = -k * disp - c * this.v;
+          this.v += accel * clampedDt;
+          this.x += this.v * clampedDt;
+          if (Math.abs(this.x - this.target) < 0.0004 && Math.abs(this.v) < 0.002) {
+            this.x = this.target;
+            this.v = 0;
+            return false;
+          }
+          return true;
+        }
+      }
+
+      // Apple's progressive edge resistance function (§9 Rubber-banding)
+      function rubberband(overshoot, dimension, constant = 0.55) {
+        return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+      }
+
+      const activeSprings = new Set();
+      let springRafRunning = false;
+      let lastSpringTs = performance.now();
+
+      function registerSpringJob(job) {
+        activeSprings.add(job);
+        if (!springRafRunning) {
+          springRafRunning = true;
+          lastSpringTs = performance.now();
+          requestAnimationFrame(stepAllSprings);
+        }
+      }
+
+      function stepAllSprings(now) {
+        const dt = Math.max(0.001, (now - lastSpringTs) / 1000);
+        lastSpringTs = now;
+        for (const job of activeSprings) {
+          if (!job(dt)) activeSprings.delete(job);
+        }
+        if (activeSprings.size > 0) {
+          requestAnimationFrame(stepAllSprings);
+        } else {
+          springRafRunning = false;
+        }
+      }
+
+      /* Instant pointer-down press feedback (§1 Response — kill latency) */
+      document.querySelectorAll(".pressable").forEach((el) => {
+        const scaleSpring = new FluidSpring(1, { damping: 1.0, response: 0.18 });
+        const tickScale = (dt) => {
+          const moving = scaleSpring.step(dt);
+          el.style.transform = scaleSpring.x === 1 ? "" : `scale(${scaleSpring.x.toFixed(4)})`;
+          return moving;
+        };
+        el.addEventListener("pointerdown", () => {
+          if (el.disabled) return;
+          scaleSpring.setTarget(0.965);
+          registerSpringJob(tickScale);
+        });
+        ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => {
+          el.addEventListener(ev, () => {
+            if (scaleSpring.target !== 1) {
+              scaleSpring.setTarget(1);
+              registerSpringJob(tickScale);
+            }
+          });
+        });
+      });
+
+      /* Physics-driven Segmented Controls (interruptible sliding pill) */
+      function initSegmentedControl(container, onSelect) {
+        const thumb = container.querySelector(".seg-thumb");
+        const buttons = Array.from(container.querySelectorAll(".seg-option"));
+        const xSpring = new FluidSpring(0, { damping: 1.0, response: 0.28 });
+        const wSpring = new FluidSpring(80, { damping: 1.0, response: 0.28 });
+        let initialized = false;
+
+        const applyThumb = () => {
+          thumb.style.transform = `translate3d(${xSpring.x.toFixed(2)}px, 0, 0)`;
+          thumb.style.width = `${wSpring.x.toFixed(2)}px`;
+        };
+
+        const tickSeg = (dt) => {
+          const mx = xSpring.step(dt);
+          const mw = wSpring.step(dt);
+          applyThumb();
+          return mx || mw;
+        };
+
+        function syncToActive(immediate = false) {
+          const active = buttons.find((b) => b.getAttribute("aria-checked") === "true") || buttons[0];
+          const rect = active.getBoundingClientRect();
+          const parentRect = container.getBoundingClientRect();
+          const targetX = rect.left - parentRect.left - 3;
+          const targetW = rect.width;
+          if (immediate || !initialized) {
+            xSpring.snap(targetX);
+            wSpring.snap(targetW);
+            applyThumb();
+            initialized = true;
+          } else {
+            xSpring.setTarget(targetX);
+            wSpring.setTarget(targetW);
+            registerSpringJob(tickSeg);
+          }
+        }
+
+        buttons.forEach((btn) => {
+          btn.addEventListener("pointerdown", () => {
+            if (btn.getAttribute("aria-checked") === "true") return;
+            buttons.forEach((b) => b.setAttribute("aria-checked", "false"));
+            btn.setAttribute("aria-checked", "true");
+            syncToActive(false);
+            onSelect(btn.dataset.val);
+          });
+          btn.addEventListener("click", () => {
+            if (btn.getAttribute("aria-checked") === "true") return;
+            buttons.forEach((b) => b.setAttribute("aria-checked", "false"));
+            btn.setAttribute("aria-checked", "true");
+            syncToActive(false);
+            onSelect(btn.dataset.val);
+          });
+        });
+
+        window.addEventListener("resize", () => syncToActive(true));
+        requestAnimationFrame(() => syncToActive(true));
+      }
+
+      /* Tactile 1:1 Pointer-Captured Slider with Rubber-Banding (§2, §5, §9) */
+      function createFluidSlider(el, { initial = 0, onInput }) {
+        const track = el.querySelector(".apple-slider-track");
+        const fill = el.querySelector(".apple-slider-fill");
+        const thumb = el.querySelector(".apple-slider-thumb");
+
+        let value = initial; // normalized 0..1
+        let dragging = false;
+        let grabThumbOffset = 0;
+
+        const thumbScale = new FluidSpring(1.0, { damping: 0.82, response: 0.24 });
+        const rubberOffset = new FluidSpring(0.0, { damping: 0.85, response: 0.30 });
+
+        const renderVisuals = () => {
+          const pct = (value * 100).toFixed(3) + "%";
+          fill.style.width = pct;
+          thumb.style.left = pct;
+          thumb.style.transform = `translate3d(${rubberOffset.x.toFixed(2)}px, 0, 0) scale(${thumbScale.x.toFixed(3)})`;
+          track.style.transform = rubberOffset.x === 0 ? "" : `translate3d(${(rubberOffset.x * 0.45).toFixed(2)}px, 0, 0)`;
+        };
+
+        const tickSlider = (dt) => {
+          const ms = thumbScale.step(dt);
+          const mr = rubberOffset.step(dt);
+          renderVisuals();
+          return ms || mr;
+        };
+
+        function updateFromClientX(clientX) {
+          const rect = track.getBoundingClientRect();
+          const width = Math.max(1, rect.width);
+          const rawPx = clientX - grabThumbOffset - rect.left;
+          if (rawPx < 0) {
+            value = 0;
+            rubberOffset.snap(rubberband(rawPx, 28, 0.55));
+          } else if (rawPx > width) {
+            value = 1;
+            rubberOffset.snap(rubberband(rawPx - width, 28, 0.55));
+          } else {
+            value = rawPx / width;
+            rubberOffset.snap(0);
+          }
+          renderVisuals();
+          onInput(value);
+        }
+
+        el.addEventListener("pointerdown", (e) => {
+          dragging = true;
+          el.setPointerCapture(e.pointerId);
+          const thumbRect = thumb.getBoundingClientRect();
+          const thumbCenter = thumbRect.left + thumbRect.width / 2;
+          // Respect grab offset if user grabbed the thumb directly (§2 Direct manipulation)
+          grabThumbOffset = Math.abs(e.clientX - thumbCenter) <= 14 ? (e.clientX - thumbCenter) : 0;
+          thumbScale.setTarget(1.24);
+          updateFromClientX(e.clientX);
+          registerSpringJob(tickSlider);
+        });
+
+        el.addEventListener("pointermove", (e) => {
+          if (!dragging) return;
+          updateFromClientX(e.clientX);
+        });
+
+        const endDrag = () => {
+          if (!dragging) return;
+          dragging = false;
+          thumbScale.setTarget(1.0);
+          rubberOffset.setTarget(0.0);
+          registerSpringJob(tickSlider);
+        };
+        el.addEventListener("pointerup", endDrag);
+        el.addEventListener("pointercancel", endDrag);
+
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            e.preventDefault();
+            value = Math.max(0, value - 0.04);
+            renderVisuals();
+            onInput(value);
+          } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            e.preventDefault();
+            value = Math.min(1, value + 0.04);
+            renderVisuals();
+            onInput(value);
+          }
+        });
+
+        renderVisuals();
+        return {
+          get isDragging() { return dragging; },
+          setValue(v) {
+            if (dragging) return;
+            value = Math.max(0, Math.min(1, v));
+            renderVisuals();
+          }
+        };
+      }
+
+      /* =====================================================================
+       * UEFI GOP->Blt() & Temporal-RLE Engine
+       * ===================================================================== */
       const UEFI_16_PALETTE = [
         [0, 0, 0],       [0, 0, 170],     [0, 170, 0],     [0, 170, 170],
         [170, 0, 0],     [170, 0, 170],   [170, 95, 0],    [192, 192, 192],
@@ -694,7 +1193,6 @@
         [255, 70, 70],   [255, 85, 255],  [255, 240, 75],  [255, 255, 255]
       ];
 
-      // Discord SGR 30..37 foreground ANSI colors
       const DISCORD_ANSI = [
         { code: 30, rgb: [79, 84, 92] },
         { code: 31, rgb: [220, 50, 47] },
@@ -709,17 +1207,14 @@
       const ASCII_RAMP = " .:-=+*#%@";
       const BLOCK_RAMP = " ░▒▓█";
 
-      // Build deterministic 255-color 24-bit palette (6x7x6 RGB cube = 252 + 3 extra warm Backrooms/gray tones)
       function buildFixed255Palette() {
         const pal = [];
         const rSteps = [0, 51, 102, 153, 204, 255];
         const gSteps = [0, 42, 85, 128, 170, 212, 255];
         const bSteps = [0, 51, 102, 153, 204, 255];
-        for (let r of rSteps) {
-          for (let g of gSteps) {
-            for (let b of bSteps) {
-              pal.push([r, g, b]);
-            }
+        for (const r of rSteps) {
+          for (const g of gSteps) {
+            for (const b of bSteps) pal.push([r, g, b]);
           }
         }
         pal.push([188, 168, 72], [232, 214, 98], [32, 36, 44]);
@@ -753,6 +1248,8 @@
 
       const canvas = document.getElementById("gopCanvas");
       const ctx = canvas.getContext("2d", { alpha: false });
+      const ambientCanvas = document.getElementById("ambientCanvas");
+      const ambientCtx = ambientCanvas.getContext("2d", { alpha: false });
       const workCanvas = document.createElement("canvas");
       const workCtx = workCanvas.getContext("2d", { willReadFrequently: true });
       const procCanvas = document.createElement("canvas");
@@ -762,12 +1259,12 @@
 
       const videoEl = document.getElementById("hiddenVideo");
       let loadedImage = null;
-      let sourceKind = "demo"; // 'demo' | 'video' | 'image'
+      let sourceKind = "demo";
       let isPlaying = true;
       let demoTime = 0;
       const DEMO_DURATION = 6.5;
 
-      let state = {
+      const state = {
         mode: "gop",
         gridW: 320,
         gridH: 180,
@@ -778,7 +1275,9 @@
 
       let prevScreenIdx = new Uint8Array(320 * 180);
       let hasPrevFrame = false;
+      let dirtyRender = true;
       let lastFrameTick = performance.now();
+      let lastWallTime = performance.now();
       let emaBytesPerFrame = 0;
 
       const BOOT_LINES = [
@@ -854,7 +1353,6 @@
           return;
         }
 
-        // Animated 3D Backrooms / Cyber-Corridor scene (2.3s .. 6.5s)
         const vt = (tSec - 2.3) / 4.2;
         const horizon = h * 0.48;
         const skyGrad = procCtx.createLinearGradient(0, 0, 0, horizon);
@@ -863,7 +1361,6 @@
         procCtx.fillStyle = skyGrad;
         procCtx.fillRect(0, 0, w, horizon);
 
-        // Ceiling fluorescent fixtures scrolling in perspective
         for (let z = 0; z < 8; z++) {
           const depth = ((z + (vt * 6) % 1) / 8);
           const py = horizon - Math.pow(depth, 1.8) * (horizon - 12);
@@ -873,7 +1370,6 @@
           procCtx.fillRect((w - lw) / 2, py - lh / 2, lw, lh);
         }
 
-        // Warm ochre floor & Backrooms yellow pillars
         const floorGrad = procCtx.createLinearGradient(0, horizon, 0, h);
         floorGrad.addColorStop(0, "#33290f");
         floorGrad.addColorStop(1, "#8f782d");
@@ -892,12 +1388,6 @@
           procCtx.fillRect(w / 2 - spread - pw + sway, horizon - ph / 2, pw, ph);
           procCtx.fillRect(w / 2 + spread + sway, horizon - ph / 2, pw, ph);
         }
-
-        // HUD telemetry bar
-        procCtx.fillStyle = "rgba(8, 10, 14, 0.78)";
-        procCtx.fillRect(24, h - 42, w - 48, 24);
-        procCtx.fillStyle = "#3ee08f";
-        procCtx.fillRect(26, h - 40, Math.floor((w - 52) * vt), 20);
       }
 
       function sampleAndSharpenGrid(gw, gh, sharpStrength) {
@@ -920,7 +1410,6 @@
           drawProceduralSource(demoTime);
         }
 
-        // Letterbox-preserving fit into gw x gh
         const srcAspect = sw / Math.max(1, sh);
         const dstAspect = gw / gh;
         let dw = gw, dh = gh, dx = 0, dy = 0;
@@ -933,11 +1422,9 @@
         }
         workCtx.drawImage(src, dx, dy, dw, dh);
 
-        const imgData = workCtx.getImageData(0, 0, gw, gh);
-        const srcPx = imgData.data;
+        const srcPx = workCtx.getImageData(0, 0, gw, gh).data;
         const outRgb = new Uint8ClampedArray(gw * gh * 3);
 
-        // Contrast + thresholded 4-neighbor unsharp mask matching tools/video_to_color_ascii.py
         for (let y = 0; y < gh; y++) {
           for (let x = 0; x < gw; x++) {
             const idx4 = (y * gw + x) * 4;
@@ -951,9 +1438,7 @@
                 const rt = srcPx[(y * gw + (x + 1)) * 4 + c];
                 const blur = (up + dn + lf + rt + srcPx[idx4 + c] * 2) / 6;
                 const detail = srcPx[idx4 + c] - blur;
-                if (Math.abs(detail) >= 3.5) {
-                  v += detail * sharpStrength;
-                }
+                if (Math.abs(detail) >= 3.5) v += detail * sharpStrength;
               }
               outRgb[idx3 + c] = v < 0 ? 0 : v > 255 ? 255 : v;
             }
@@ -1003,10 +1488,13 @@
         return { tokens, skipped, total: n };
       }
 
-      function renderCanvasFrame(gridRgb, gw, gh) {
+      function renderCanvasFrame(gridRgb, gw, gh, updateStats = true) {
         const cw = canvas.width, ch = canvas.height;
-        const rle = computeFrameRle(gridRgb, gw, gh, state.tol, !hasPrevFrame);
-        hasPrevFrame = true;
+        let rle = null;
+        if (updateStats || !hasPrevFrame) {
+          rle = computeFrameRle(gridRgb, gw, gh, state.tol, !hasPrevFrame);
+          hasPrevFrame = true;
+        }
 
         if (state.mode === "gop") {
           const img = ctx.createImageData(cw, ch);
@@ -1019,8 +1507,7 @@
             const isScanline = (py % scanMod) === (scanMod - 1);
             for (let px = 0; px < cw; px++) {
               const gx = Math.min(gw - 1, Math.floor(px / sx));
-              const pIdx = prevScreenIdx[gy * gw + gx];
-              const col = PAL255[pIdx];
+              const col = PAL255[prevScreenIdx[gy * gw + gx]];
               const di = (py * cw + px) * 4;
               if (isScanline) {
                 dst[di]     = (col[0] * 7) >> 3;
@@ -1041,9 +1528,6 @@
           const cols = Math.min(160, gw);
           const rows = Math.floor(cols * (9 / 16) * 0.5);
           const cellW = cw / cols, cellH = ch / rows;
-          ctx.font = `${Math.ceil(cellH)}px Consolas, monospace`;
-          ctx.textBaseline = "top";
-
           for (let ry = 0; ry < rows; ry++) {
             const gyTop = Math.min(gh - 1, Math.floor(((ry * 2) / (rows * 2)) * gh));
             const gyBot = Math.min(gh - 1, Math.floor(((ry * 2 + 1) / (rows * 2)) * gh));
@@ -1058,14 +1542,12 @@
             }
           }
         } else {
-          // 16-Color UEFI ASCII
           ctx.fillStyle = "#000";
           ctx.fillRect(0, 0, cw, ch);
           const cols = 120, rows = 38;
           const cellW = cw / cols, cellH = ch / rows;
-          ctx.font = `${Math.floor(cellH * 0.95)}px Consolas, monospace`;
+          ctx.font = `${Math.floor(cellH * 0.95)}px ui-monospace, Consolas, monospace`;
           ctx.textBaseline = "top";
-
           for (let ry = 0; ry < rows; ry++) {
             const gy = Math.min(gh - 1, Math.floor((ry / rows) * gh));
             for (let rx = 0; rx < cols; rx++) {
@@ -1075,15 +1557,19 @@
               const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
               const ci = Math.min(ASCII_RAMP.length - 1, Math.floor(Math.pow(luma, 0.88) * ASCII_RAMP.length));
               if (ci === 0) continue;
-              const sr = Math.min(255, r * 1.35), sg = Math.min(255, g * 1.35), sb = Math.min(255, b * 1.35);
-              const u16 = UEFI_16_PALETTE[nearestUefi16(sr, sg, sb)];
+              const u16 = UEFI_16_PALETTE[nearestUefi16(Math.min(255, r * 1.35), Math.min(255, g * 1.35), Math.min(255, b * 1.35))];
               ctx.fillStyle = `rgb(${u16[0]},${u16[1]},${u16[2]})`;
               ctx.fillText(ASCII_RAMP[ci], rx * cellW, ry * cellH);
             }
           }
         }
 
-        updateTelemetry(rle);
+        if (!prefersReducedMotion()) {
+          ambientCtx.drawImage(canvas, 0, 0, ambientCanvas.width, ambientCanvas.height);
+        }
+        if (rle) {
+          updateTelemetry(rle);
+        }
       }
 
       function getClipDuration() {
@@ -1096,14 +1582,13 @@
 
       function updateTelemetry(rle) {
         const scale1080 = Math.floor(1920 / state.gridW);
-        document.getElementById("statGrid").textContent = `${state.gridW}×${state.gridH} (${scale1080}×)`;
-        document.getElementById("statFps").textContent = `${state.fps} FPS`;
+        const exact = (1920 % state.gridW === 0 && 1080 % state.gridH === 0) ? "exact" : "centered";
+        document.getElementById("scaleHint").textContent = `${scale1080}× ${exact} on 1080p`;
         document.getElementById("statRuns").textContent = rle.tokens.length.toLocaleString();
-        const skipPct = ((rle.skipped / rle.total) * 100).toFixed(1);
-        document.getElementById("statSkip").textContent = `${skipPct}%`;
+        document.getElementById("statSkip").textContent = `${((rle.skipped / rle.total) * 100).toFixed(1)}%`;
 
         const bytesThisFrame = rle.tokens.length * 2 + 4;
-        emaBytesPerFrame = emaBytesPerFrame === 0 ? bytesThisFrame : (emaBytesPerFrame * 0.85 + bytesThisFrame * 0.15);
+        emaBytesPerFrame = emaBytesPerFrame === 0 ? bytesThisFrame : (emaBytesPerFrame * 0.86 + bytesThisFrame * 0.14);
         const totalFrames = Math.max(1, Math.round(getClipDuration() * state.fps));
         const estBytes = 36864 + 1024 + emaBytesPerFrame * totalFrames;
         const estMb = estBytes / (1024 * 1024);
@@ -1116,38 +1601,65 @@
         return `${String(m).padStart(2, "0")}:${rem}`;
       }
 
-      function tick(now) {
-        requestAnimationFrame(tick);
-        const period = 1000 / state.fps;
-        const dt = now - lastFrameTick;
-        if (dt < period) return;
-        lastFrameTick = now - (dt % period);
-
-        if (isPlaying && sourceKind === "demo") {
-          demoTime = (demoTime + period / 1000) % DEMO_DURATION;
+      /* Controls Initialization */
+      const scrubCtrl = createFluidSlider(document.getElementById("scrubSlider"), {
+        initial: 0,
+        onInput(norm) {
+          hasPrevFrame = false;
+          dirtyRender = true;
+          const dur = getClipDuration();
+          if (sourceKind === "video" && Number.isFinite(videoEl.duration)) {
+            videoEl.currentTime = norm * videoEl.duration;
+          } else if (sourceKind === "demo") {
+            demoTime = norm * dur;
+          }
         }
+      });
 
-        const curT = sourceKind === "video" ? (videoEl.currentTime || 0) : (sourceKind === "image" ? 0 : demoTime);
-        const durT = getClipDuration();
-        document.getElementById("timeReadout").textContent = `${formatSec(curT)} / ${formatSec(durT)}`;
-        if (durT > 0) {
-          document.getElementById("seekBar").value = String(Math.round((curT / durT) * 1000));
+      createFluidSlider(document.getElementById("sharpSlider"), {
+        initial: 0.60 / 1.50,
+        onInput(norm) {
+          state.sharpness = norm * 1.50;
+          hasPrevFrame = false;
+          dirtyRender = true;
+          document.getElementById("sharpOut").textContent = state.sharpness.toFixed(2);
         }
+      });
 
-        const gridRgb = sampleAndSharpenGrid(state.gridW, state.gridH, state.sharpness);
-        renderCanvasFrame(gridRgb, state.gridW, state.gridH);
-      }
+      createFluidSlider(document.getElementById("tolSlider"), {
+        initial: 10 / 26,
+        onInput(norm) {
+          state.tol = Math.round(norm * 26);
+          hasPrevFrame = false;
+          dirtyRender = true;
+          document.getElementById("tolOut").textContent = String(state.tol);
+          emaBytesPerFrame = 0;
+        }
+      });
 
-      // Controls wiring
-      function setStatus(id, text, cls = "") {
-        const el = document.getElementById(id);
-        el.textContent = text;
-        el.className = "status-note" + (cls ? " " + cls : "");
-      }
+      initSegmentedControl(document.querySelector('[data-seg="mode"]'), (val) => {
+        state.mode = val;
+        dirtyRender = true;
+      });
+
+      initSegmentedControl(document.querySelector('[data-seg="grid"]'), (val) => {
+        const [w, h] = val.split("x").map(Number);
+        state.gridW = w;
+        state.gridH = h;
+        hasPrevFrame = false;
+        dirtyRender = true;
+        emaBytesPerFrame = 0;
+      });
+
+      initSegmentedControl(document.querySelector('[data-seg="fps"]'), (val) => {
+        state.fps = Number(val);
+        dirtyRender = true;
+        emaBytesPerFrame = 0;
+      });
 
       function setPlayIcon(playing) {
         document.getElementById("playIcon").innerHTML = playing
-          ? '<rect x="6" y="4" width="4" height="16" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" fill="currentColor" stroke="none"/>'
+          ? '<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/>'
           : '<polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/>';
       }
       setPlayIcon(true);
@@ -1170,22 +1682,18 @@
         }
       });
 
-      document.getElementById("seekBar").addEventListener("input", (e) => {
-        const frac = Number(e.target.value) / 1000;
-        hasPrevFrame = false;
-        if (sourceKind === "video" && Number.isFinite(videoEl.duration)) {
-          videoEl.currentTime = frac * videoEl.duration;
-        } else if (sourceKind === "demo") {
-          demoTime = frac * DEMO_DURATION;
-        }
-      });
+      function setSourceFeedback(text, isError = false) {
+        document.getElementById("sourceStatus").textContent = text;
+        document.getElementById("sourceDot").classList.toggle("is-error", isError);
+      }
 
       function loadFileObject(file) {
         if (!file) return;
         const url = URL.createObjectURL(file);
         hasPrevFrame = false;
         emaBytesPerFrame = 0;
-        document.getElementById("demoBtn").classList.remove("btn-active-source");
+        document.getElementById("demoBtn").classList.remove("is-selected");
+        document.getElementById("browseBtn").classList.add("is-selected");
 
         if (file.type.startsWith("image/") && file.type !== "image/gif") {
           const img = new Image();
@@ -1193,9 +1701,9 @@
             loadedImage = img;
             sourceKind = "image";
             videoEl.pause();
-            setStatus("sourceStatus", `Loaded image: ${file.name} (${img.naturalWidth}×${img.naturalHeight})`, "ok");
+            setSourceFeedback(`${file.name} (${img.naturalWidth}×${img.naturalHeight})`);
           };
-          img.onerror = () => setStatus("sourceStatus", "Could not decode image file.", "err");
+          img.onerror = () => setSourceFeedback("Could not decode image file — try PNG or JPEG.", true);
           img.src = url;
         } else {
           videoEl.src = url;
@@ -1205,17 +1713,16 @@
             isPlaying = true;
             setPlayIcon(true);
             videoEl.play().catch(() => {});
-            setStatus("sourceStatus", `Loaded video: ${file.name} (${videoEl.videoWidth}×${videoEl.videoHeight}, ${videoEl.duration.toFixed(1)}s)`, "ok");
+            setSourceFeedback(`${file.name} (${videoEl.videoWidth}×${videoEl.videoHeight}, ${videoEl.duration.toFixed(1)}s)`);
           };
           videoEl.onerror = () => {
-            // Try as image (e.g. animated/static GIF)
             const img = new Image();
             img.onload = () => {
               loadedImage = img;
               sourceKind = "image";
-              setStatus("sourceStatus", `Loaded graphic: ${file.name}`, "ok");
+              setSourceFeedback(`${file.name} (${img.naturalWidth}×${img.naturalHeight})`);
             };
-            img.onerror = () => setStatus("sourceStatus", "Unsupported media format. Try .mp4, .webm, .png, or .jpg.", "err");
+            img.onerror = () => setSourceFeedback("Unsupported media format — drop MP4, WebM, PNG, or JPEG.", true);
             img.src = url;
           };
         }
@@ -1232,20 +1739,22 @@
         isPlaying = true;
         setPlayIcon(true);
         videoEl.pause();
-        document.getElementById("demoBtn").classList.add("btn-active-source");
-        setStatus("sourceStatus", "Running built-in UEFI boot & cyber-horizon sequence (6.5s).");
+        document.getElementById("browseBtn").classList.remove("is-selected");
+        document.getElementById("demoBtn").classList.add("is-selected");
+        setSourceFeedback("Built-in UEFI boot & corridor sequence");
       });
 
-      document.getElementById("loadUrlBtn").addEventListener("click", () => {
+      function triggerUrlLoad() {
         const rawUrl = document.getElementById("urlInput").value.trim();
         if (!rawUrl) {
-          setStatus("sourceStatus", "Enter a direct .mp4/.webm/.png URL first.", "err");
+          setSourceFeedback("Paste a direct MP4, WebM, or image link first.", true);
           return;
         }
         hasPrevFrame = false;
         emaBytesPerFrame = 0;
-        document.getElementById("demoBtn").classList.remove("btn-active-source");
-        setStatus("sourceStatus", "Fetching remote media with crossOrigin='anonymous'...");
+        document.getElementById("demoBtn").classList.remove("is-selected");
+        document.getElementById("browseBtn").classList.remove("is-selected");
+        setSourceFeedback("Loading remote stream…");
 
         if (/\.(png|jpe?g|webp)(\?.*)?$/i.test(rawUrl)) {
           const img = new Image();
@@ -1253,9 +1762,9 @@
           img.onload = () => {
             loadedImage = img;
             sourceKind = "image";
-            setStatus("sourceStatus", `Loaded remote image (${img.naturalWidth}×${img.naturalHeight}).`, "ok");
+            setSourceFeedback(`Remote image (${img.naturalWidth}×${img.naturalHeight})`);
           };
-          img.onerror = () => setStatus("sourceStatus", "Remote host blocked CORS or image URL is invalid. Download and drop the file locally.", "err");
+          img.onerror = () => setSourceFeedback("Remote host blocked CORS — save the file and drop it onto the display.", true);
           img.src = rawUrl;
         } else {
           videoEl.crossOrigin = "anonymous";
@@ -1266,77 +1775,47 @@
             isPlaying = true;
             setPlayIcon(true);
             videoEl.play().catch(() => {});
-            setStatus("sourceStatus", `Loaded remote stream (${videoEl.videoWidth}×${videoEl.videoHeight}, ${videoEl.duration.toFixed(1)}s).`, "ok");
+            setSourceFeedback(`Remote video (${videoEl.videoWidth}×${videoEl.videoHeight}, ${videoEl.duration.toFixed(1)}s)`);
           };
-          videoEl.onerror = () => setStatus("sourceStatus", "Remote server disallowed CORS or stream is not a direct MP4/WebM link. Drop a local file instead.", "err");
+          videoEl.onerror = () => setSourceFeedback("Server disallowed CORS or URL is not a direct video stream — drop a local file instead.", true);
         }
+      }
+
+      document.getElementById("loadUrlBtn").addEventListener("click", triggerUrlLoad);
+      document.getElementById("urlInput").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") triggerUrlLoad();
       });
 
       const dropZone = document.getElementById("dropZone");
       ["dragenter", "dragover"].forEach((ev) => {
         window.addEventListener(ev, (e) => {
           e.preventDefault();
-          dropZone.classList.add("drag-active");
+          dropZone.classList.add("is-dragging");
         });
       });
       ["dragleave", "drop"].forEach((ev) => {
         window.addEventListener(ev, (e) => {
           e.preventDefault();
-          dropZone.classList.remove("drag-active");
+          dropZone.classList.remove("is-dragging");
           if (ev === "drop" && e.dataTransfer && e.dataTransfer.files.length > 0) {
             loadFileObject(e.dataTransfer.files[0]);
           }
         });
       });
 
-      document.querySelectorAll("[data-mode]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", "false"));
-          btn.setAttribute("aria-pressed", "true");
-          state.mode = btn.dataset.mode;
-        });
-      });
+      /* Export C17 Header */
+      function setExportStatus(text, kind = "") {
+        const el = document.getElementById("exportStatus");
+        el.textContent = text;
+        el.className = "export-caption" + (kind ? ` is-${kind}` : "");
+      }
 
-      document.querySelectorAll("[data-grid]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll("[data-grid]").forEach((b) => b.setAttribute("aria-pressed", "false"));
-          btn.setAttribute("aria-pressed", "true");
-          const [w, h] = btn.dataset.grid.split("x").map(Number);
-          state.gridW = w;
-          state.gridH = h;
-          hasPrevFrame = false;
-          emaBytesPerFrame = 0;
-        });
-      });
-
-      document.querySelectorAll("[data-fps]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          document.querySelectorAll("[data-fps]").forEach((b) => b.setAttribute("aria-pressed", "false"));
-          btn.setAttribute("aria-pressed", "true");
-          state.fps = Number(btn.dataset.fps);
-          emaBytesPerFrame = 0;
-        });
-      });
-
-      document.getElementById("sharpSlider").addEventListener("input", (e) => {
-        state.sharpness = Number(e.target.value) / 100;
-        document.getElementById("sharpOut").textContent = state.sharpness.toFixed(2);
-      });
-
-      document.getElementById("tolSlider").addEventListener("input", (e) => {
-        state.tol = Number(e.target.value);
-        document.getElementById("tolOut").textContent = String(state.tol);
-        emaBytesPerFrame = 0;
-      });
-
-      // One-click C header exporter (exact Temporal-RLE UINT16 format matching src/main.c)
       document.getElementById("exportHeaderBtn").addEventListener("click", async () => {
         const btn = document.getElementById("exportHeaderBtn");
-        const progWrap = document.getElementById("exportProgressWrap");
-        const progBar = document.getElementById("exportProgressBar");
+        const label = document.getElementById("exportBtnLabel");
+        const fill = document.getElementById("exportProgressFill");
         btn.disabled = true;
-        progWrap.classList.add("visible");
-        progBar.style.width = "0%";
+        fill.style.width = "0%";
 
         try {
           const gw = state.gridW, gh = state.gridH, fps = state.fps;
@@ -1364,32 +1843,30 @@
 
             const rgb = sampleAndSharpenGrid(gw, gh, state.sharpness);
             const rle = computeFrameRle(rgb, gw, gh, state.tol, f === 0);
-            for (let k = 0; k < rle.tokens.length; k++) {
-              allTokens.push(rle.tokens[k]);
-            }
+            for (let k = 0; k < rle.tokens.length; k++) allTokens.push(rle.tokens[k]);
             offsets.push(allTokens.length);
 
             if (f % 4 === 0 || f + 1 === totalFrames) {
               const pct = Math.round(((f + 1) / totalFrames) * 100);
-              progBar.style.width = `${pct}%`;
-              setStatus("exportStatus", `Encoding frame ${f + 1} / ${totalFrames} (${pct}%)...`);
+              fill.style.width = `${pct}%`;
+              label.textContent = `Encoding ${pct}%…`;
               await new Promise((r) => setTimeout(r, 0));
             }
           }
 
           const frameUs = Math.round(1000000 / fps);
-          const lines = [];
-          lines.push("#pragma once");
-          lines.push('#include "uefi_compat.h"\n');
-          lines.push(`#define GOP_VIDEO_WIDTH       ${gw}U`);
-          lines.push(`#define GOP_VIDEO_HEIGHT      ${gh}U`);
-          lines.push(`#define GOP_VIDEO_FPS         ${fps}U`);
-          lines.push(`#define GOP_VIDEO_FRAME_US    ${frameUs}U`);
-          lines.push(`#define GOP_VIDEO_FRAME_COUNT ${totalFrames}U`);
-          lines.push(`#define GOP_VIDEO_RUN_COUNT   ${allTokens.length}U`);
-          lines.push("#define GOP_VIDEO_SKIP_INDEX  255U\n");
-
-          lines.push("static const UINT32 kGopVideoPalette32[255] = {");
+          const lines = [
+            "#pragma once",
+            '#include "uefi_compat.h"\n',
+            `#define GOP_VIDEO_WIDTH       ${gw}U`,
+            `#define GOP_VIDEO_HEIGHT      ${gh}U`,
+            `#define GOP_VIDEO_FPS         ${fps}U`,
+            `#define GOP_VIDEO_FRAME_US    ${frameUs}U`,
+            `#define GOP_VIDEO_FRAME_COUNT ${totalFrames}U`,
+            `#define GOP_VIDEO_RUN_COUNT   ${allTokens.length}U`,
+            "#define GOP_VIDEO_SKIP_INDEX  255U\n",
+            "static const UINT32 kGopVideoPalette32[255] = {"
+          ];
           for (let i = 0; i < 255; i += 8) {
             const slice = PAL255.slice(i, i + 8).map(([r, g, b]) => {
               const bgr0 = (b | (g << 8) | (r << 16)) >>> 0;
@@ -1397,15 +1874,11 @@
             });
             lines.push("    " + slice.join(", ") + ",");
           }
-          lines.push("};\n");
-
-          lines.push("static const UINT32 kGopFrameOffsets[GOP_VIDEO_FRAME_COUNT + 1] = {");
+          lines.push("};\n\nstatic const UINT32 kGopFrameOffsets[GOP_VIDEO_FRAME_COUNT + 1] = {");
           for (let i = 0; i < offsets.length; i += 16) {
             lines.push("    " + offsets.slice(i, i + 16).map((v) => `${v}U`).join(", ") + ",");
           }
-          lines.push("};\n");
-
-          lines.push("static const UINT16 kGopVideoRunsU16[GOP_VIDEO_RUN_COUNT] = {");
+          lines.push("};\n\nstatic const UINT16 kGopVideoRunsU16[GOP_VIDEO_RUN_COUNT] = {");
           for (let i = 0; i < allTokens.length; i += 24) {
             const row = allTokens.slice(i, i + 24).map((v) => "0x" + v.toString(16).toUpperCase().padStart(4, "0") + "U");
             lines.push("    " + row.join(",") + ",");
@@ -1421,19 +1894,24 @@
           URL.revokeObjectURL(dlUrl);
 
           const payloadMb = ((allTokens.length * 2 + offsets.length * 4 + 1020) / (1024 * 1024)).toFixed(2);
-          setStatus("exportStatus", `Exported video_frames.h (${totalFrames} frames, ${payloadMb} MB .rdata).`, "ok");
+          label.textContent = "Exported video_frames.h";
+          setExportStatus(`Saved ${totalFrames} frames (${payloadMb} MB .rdata) — drop into src/ and run make.`, "ok");
 
           isPlaying = wasPlaying;
           if (wasPlaying && sourceKind === "video") videoEl.play().catch(() => {});
         } catch (err) {
-          setStatus("exportStatus", "Export failed: canvas is tainted by cross-origin video. Use a local file.", "err");
+          label.textContent = "Export video_frames.h";
+          setExportStatus("Export blocked by remote CORS policy — drop a local video file to export.", "err");
         } finally {
           btn.disabled = false;
-          setTimeout(() => progWrap.classList.remove("visible"), 900);
+          setTimeout(() => {
+            fill.style.width = "0%";
+            label.textContent = "Export video_frames.h";
+          }, 2200);
         }
       });
 
-      // Copy compressed Discord ```ansi block guaranteed <= 2000 chars
+      /* Export Discord ANSI Frame (<= 2000 chars) */
       function buildDiscordAnsiAtSize(cols, rows) {
         const rgb = sampleAndSharpenGrid(cols, rows, state.sharpness);
         let out = "```ansi\n";
@@ -1467,6 +1945,7 @@
       }
 
       document.getElementById("copyAnsiBtn").addEventListener("click", async () => {
+        const copyLabel = document.getElementById("copyBtnLabel");
         try {
           const sizes = [[58, 18], [52, 16], [46, 14], [40, 12], [34, 10], [28, 8]];
           let chosen = "";
@@ -1476,11 +1955,44 @@
             if (candidate.length <= 1990) break;
           }
           await navigator.clipboard.writeText(chosen);
-          setStatus("exportStatus", `Copied Discord ANSI frame (${chosen.length} / 2000 chars).`, "ok");
+          copyLabel.textContent = "Copied Frame";
+          setExportStatus(`Copied Discord ANSI block (${chosen.length} / 2,000 chars).`, "ok");
+          setTimeout(() => { copyLabel.textContent = "Copy Frame for Discord"; }, 1800);
         } catch (err) {
-          setStatus("exportStatus", "Clipboard access failed or canvas is CORS-tainted.", "err");
+          setExportStatus("Clipboard access failed or remote video tainted canvas.", "err");
         }
       });
+
+      /* Main Display-Synced Render Loop */
+      function tick(now) {
+        requestAnimationFrame(tick);
+        const wallDt = Math.min(0.1, Math.max(0, (now - lastWallTime) / 1000));
+        lastWallTime = now;
+
+        if (isPlaying && sourceKind === "demo" && !scrubCtrl.isDragging) {
+          demoTime = (demoTime + wallDt) % DEMO_DURATION;
+        }
+
+        const period = 1000 / state.fps;
+        const dt = now - lastFrameTick;
+        if (dt < period && !dirtyRender) return;
+        lastFrameTick = now - (dt % period);
+
+        const activeMotion = (isPlaying && sourceKind !== "image") || scrubCtrl.isDragging;
+        if (!activeMotion && !dirtyRender) return;
+        const shouldSampleRle = activeMotion || !hasPrevFrame;
+        dirtyRender = false;
+
+        const curT = sourceKind === "video" ? (videoEl.currentTime || 0) : (sourceKind === "image" ? 0 : demoTime);
+        const durT = getClipDuration();
+        document.getElementById("timeReadout").textContent = `${formatSec(curT)} / ${formatSec(durT)}`;
+        if (durT > 0 && !scrubCtrl.isDragging) {
+          scrubCtrl.setValue(curT / durT);
+        }
+
+        const gridRgb = sampleAndSharpenGrid(state.gridW, state.gridH, state.sharpness);
+        renderCanvasFrame(gridRgb, state.gridW, state.gridH, shouldSampleRle);
+      }
 
       requestAnimationFrame(tick);
     })();
