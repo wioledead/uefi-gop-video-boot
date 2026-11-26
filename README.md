@@ -4,7 +4,12 @@
 [![Language](https://img.shields.io/badge/C17-Freestanding%20%2F%20No%20Stdlib-A8B9CC?logo=c&logoColor=white)](https://github.com/wioledead/uefi-gop-video-boot)
 [![Graphics](https://img.shields.io/badge/Graphics-GOP%2024--bit%20Blt-00C853)](https://github.com/wioledead/uefi-gop-video-boot)
 [![Secure Boot](https://img.shields.io/badge/Secure%20Boot-Shim%20%2B%20SBAT%20Ready-FFB300)](https://github.com/wioledead/uefi-gop-video-boot)
+[![Live Web Studio](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-3EE08F?logo=github)](https://wioledead.github.io/uefi-gop-video-boot/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+![Demo](assets/demo.gif)
+
+> **Interactive Browser Studio & Converter:** [**https://wioledead.github.io/uefi-gop-video-boot/**](https://wioledead.github.io/uefi-gop-video-boot/) — test `GOP->Blt()` 255-color scanlines, half-blocks, and 16-color ASCII in real time, inspect Temporal-RLE `.efi` size, and export a ready-to-compile `video_frames.h` directly in your browser.
 
 A freestanding **x86_64 UEFI pre-boot application** (`bootx64.efi` / `grubx64.efi`) written in pure C with **zero external runtime dependencies**. Designed as a drop-in stage for [HackBGRT](https://github.com/Metabolix/HackBGRT) or standalone UEFI boot chains, it replaces the static vendor POST experience with:
 

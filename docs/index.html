@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UEFI GOP Video Workbench — uefi-gop-video-boot</title>
+  <style>
+    :root {
+      --bg-chassis: #080a0e;
+      --bg-panel: #0d1117;
+      --bg-input: #121821;
+      --bg-elevated: #171f2b;
+      --line: #1f2937;
+      --line-strong: #2d3b4e;
+      --fg-primary: #e6edf5;
+      --fg-secondary: #8d9db3;
+      --fg-muted: #5d6d82;
+      --accent: #3ee08f;
+      --accent-dim: rgba(62, 224, 143, 0.14);
+      --amber: #f0b43a;
+      --danger: #f26464;
+      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: var(--bg-chassis);
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-chassis);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--line-strong);
+      border-radius: 4px;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg-chassis);
+      color: var(--fg-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Header bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand h1 {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--fg-primary);
+      white-space: nowrap;
+    }
+
+    .brand-sub {
+      color: var(--fg-secondary);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topbar-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--fg-primary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+
+    .link-btn:hover {
+      border-color: var(--fg-secondary);
+      background: var(--bg-elevated);
+    }
+
+    /* Main workbench grid */
+    .workbench {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      min-height: calc(100vh - 55px);
+    }
+
+    /* Left viewport column */
+    .stage-col {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 16px;
+      border-right: 1px solid var(--line);
+    }
+
+    .monitor-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 70vh;
+      margin: 0 auto;
+      background: #000;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .monitor-frame.drag-active {
+      border-color: var(--accent);
+    }
+
+    #gopCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+      display: block;
+    }
+
+    .drop-veil {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 10, 14, 0.86);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    .monitor-frame.drag-active .drop-veil {
+      opacity: 1;
+    }
+
+    .drop-veil span {
+      font-family: var(--font-mono);
+      color: var(--accent);
+      font-size: 14px;
+    }
+
+    /* Transport bar */
+    .transport {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--line-strong);
+      border-radius: 5px;
+      background: var(--bg-input);
+      color: var(--fg-primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .icon-btn:hover {
+      background: var(--bg-elevated);
+      border-color: var(--fg-secondary);
+    }
+
+    .scrubber {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+      height: 4px;
+    }
+
+    .timecode {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--fg-secondary);
+      font-variant-numeric: tabular-nums;
+      min-width: 122px;
+      text-align: right;
+    }
+
+    /* Telemetry readout strip */
+    .telemetry-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg-panel);
+      overflow: hidden;
+    }
+
+    .metric {
+      padding: 10px 14px;
+      border-right: 1px solid var(--line);
+    }
+
+    .metric:last-child {
+      border-right: none;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--fg-secondary);
+      margin-bottom: 2px;
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fg-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-val.highlight {
+      color: var(--accent);
+    }
+
+    /* Right control column */
+    .inspector {
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-section {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-section h2 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .source-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--fg-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--bg-elevated);
+      border-color: var(--fg-secondary);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #06110b;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #57e89f;
+      border-color: #57e89f;
+    }
+
+    .btn-active-source {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .url-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .text-input {
+      flex: 1;
+      min-width: 0;
+      padding: 7px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--bg-chassis);
+      color: var(--fg-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .text-input::placeholder {
+      color: var(--fg-muted);
+    }
+
+    .status-note {
+      font-size: 12px;
+      color: var(--fg-secondary);
+      min-height: 18px;
+    }
+
+    .status-note.err {
+      color: var(--danger);
+    }
+
+    .status-note.ok {
+      color: var(--accent);
+    }
+
+    /* Segmented controls */
+    .seg-group {
+      display: grid;
+      gap: 6px;
+    }
+
+    .seg-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .seg-stack {
+      grid-template-columns: 1fr;
+    }
+
+    .seg-btn {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--bg-chassis);
+      color: var(--fg-secondary);
+      font-size: 12.5px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .seg-3 .seg-btn {
+      justify-content: center;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .seg-btn:hover {
+      border-color: var(--line-strong);
+      color: var(--fg-primary);
+    }
+
+    .seg-btn[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--fg-primary);
+    }
+
+    .seg-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--fg-muted);
+    }
+
+    .seg-btn[aria-pressed="true"] .seg-tag {
+      color: var(--accent);
+    }
+
+    /* Sliders */
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12.5px;
+      color: var(--fg-secondary);
+    }
+
+    .field-head output {
+      font-family: var(--font-mono);
+      color: var(--fg-primary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* Export section */
+    .export-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .progress-wrap {
+      height: 5px;
+      background: var(--bg-chassis);
+      border-radius: 3px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .progress-wrap.visible {
+      display: block;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 80ms linear;
+    }
+
+    svg.ico {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      stroke-width: 1.75;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 1024px) {
+      .workbench {
+        grid-template-columns: 1fr;
+      }
+      .stage-col {
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+      }
+      .telemetry-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .metric:nth-child(2), .metric:nth-child(4) {
+        border-right: none;
+      }
+      .metric {
+        border-bottom: 1px solid var(--line);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>uefi-gop-video-boot</h1>
+      <span class="brand-sub">Client-side UEFI GOP-&gt;Blt() Temporal-RLE encoder &amp; preview studio</span>
+    </div>
+    <div class="topbar-links">
+      <a class="link-btn" href="https://github.com/wioledead/uefi-gop-video-boot" target="_blank" rel="noopener">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+        GitHub Repository
+      </a>
+    </div>
+  </header>
+
+  <main class="workbench">
+    <section class="stage-col" aria-label="Live UEFI framebuffer preview">
+      <div class="monitor-frame" id="dropZone">
+        <canvas id="gopCanvas" width="960" height="540"></canvas>
+        <div class="drop-veil">
+          <span>Drop video or image (.mp4, .webm, .gif, .png, .jpg)</span>
+        </div>
+      </div>
+
+      <div class="transport">
+        <button class="icon-btn" id="playPauseBtn" type="button" aria-label="Play or pause">
+          <svg class="ico" id="playIcon" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="icon-btn" id="restartBtn" type="button" aria-label="Restart from beginning">
+          <svg class="ico" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        <input class="scrubber" id="seekBar" type="range" min="0" max="1000" value="0" aria-label="Playback position">
+        <div class="timecode" id="timeReadout">00:00.0 / 00:03.0</div>
+      </div>
+
+      <div class="telemetry-strip" aria-label="Live RLE telemetry">
+        <div class="metric">
+          <div class="metric-label">Grid &amp; 1080p scale</div>
+          <div class="metric-val" id="statGrid">320×180 (6×)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Frame rate</div>
+          <div class="metric-val" id="statFps">24 FPS</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Runs / frame</div>
+          <div class="metric-val" id="statRuns">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Temporal skip</div>
+          <div class="metric-val" id="statSkip">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Estimated .efi size</div>
+          <div class="metric-val highlight" id="statEfiSize">—</div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="inspector" aria-label="Encoder settings and export">
+      <section class="panel-section">
+        <h2>Media source</h2>
+        <input type="file" id="fileInput" accept=".mp4,.webm,.gif,.png,.jpg,.jpeg,video/*,image/*" hidden>
+        <div class="source-actions">
+          <button class="btn" id="browseBtn" type="button">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Local file
+          </button>
+          <button class="btn btn-active-source" id="demoBtn" type="button">
+            <svg class="ico" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Procedural demo
+          </button>
+        </div>
+        <div class="url-row">
+          <input class="text-input" id="urlInput" type="url" placeholder="https://example.com/clip.mp4 (CORS)" aria-label="Direct video or image URL">
+          <button class="btn" id="loadUrlBtn" type="button">Load</button>
+        </div>
+        <div class="status-note" id="sourceStatus">Running built-in UEFI boot &amp; cyber-horizon sequence (6.5s).</div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Render mode</h2>
+        <div class="seg-group seg-stack" role="group" aria-label="Render mode">
+          <button class="seg-btn" type="button" data-mode="gop" aria-pressed="true">
+            <span>UEFI GOP-&gt;Blt() 255-Color + Scanlines</span>
+            <span class="seg-tag">BGR0</span>
+          </button>
+          <button class="seg-btn" type="button" data-mode="blocks" aria-pressed="false">
+            <span>Color Half-Blocks &amp; Stipple</span>
+            <span class="seg-tag">▀ ░▒▓█</span>
+          </button>
+          <button class="seg-btn" type="button" data-mode="ascii" aria-pressed="false">
+            <span>Classic UEFI 16-Color Console</span>
+            <span class="seg-tag">ASCII</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Codec parameters</h2>
+        <div class="field-row">
+          <div class="field-head"><span>Grid resolution (16:9)</span></div>
+          <div class="seg-group seg-3" role="group" aria-label="Grid resolution">
+            <button class="seg-btn" type="button" data-grid="160x90" aria-pressed="false">160×90</button>
+            <button class="seg-btn" type="button" data-grid="200x112" aria-pressed="false">200×112</button>
+            <button class="seg-btn" type="button" data-grid="320x180" aria-pressed="true">320×180</button>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-head"><span>Target frame rate</span></div>
+          <div class="seg-group seg-3" role="group" aria-label="Target FPS">
+            <button class="seg-btn" type="button" data-fps="15" aria-pressed="false">15 FPS</button>
+            <button class="seg-btn" type="button" data-fps="24" aria-pressed="true">24 FPS</button>
+            <button class="seg-btn" type="button" data-fps="30" aria-pressed="false">30 FPS</button>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-head">
+            <label for="sharpSlider">Unsharp mask strength</label>
+            <output id="sharpOut">0.60</output>
+          </div>
+          <input id="sharpSlider" type="range" min="0" max="150" value="60">
+        </div>
+
+        <div class="field-row">
+          <div class="field-head">
+            <label for="tolSlider">Temporal skip tolerance (RGB)</label>
+            <output id="tolOut">10</output>
+          </div>
+          <input id="tolSlider" type="range" min="0" max="26" value="10">
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2>Export</h2>
+        <div class="export-stack">
+          <button class="btn btn-primary" id="exportHeaderBtn" type="button">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download video_frames.h (Temporal-RLE)
+          </button>
+          <div class="progress-wrap" id="exportProgressWrap">
+            <div class="progress-bar" id="exportProgressBar"></div>
+          </div>
+          <button class="btn" id="copyAnsiBtn" type="button">
+            <svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy Discord ```ansi frame (&le; 2000 chars)
+          </button>
+        </div>
+        <div class="status-note" id="exportStatus">Generates drop-in C17 header for src/video_frames.h.</div>
+      </section>
+    </aside>
+  </main>
+
+  <video id="hiddenVideo" crossorigin="anonymous" playsinline muted loop style="display:none"></video>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const UEFI_16_PALETTE = [
+        [0, 0, 0],       [0, 0, 170],     [0, 170, 0],     [0, 170, 170],
+        [170, 0, 0],     [170, 0, 170],   [170, 95, 0],    [192, 192, 192],
+        [105, 105, 105], [85, 85, 255],   [85, 255, 85],   [85, 255, 255],
+        [255, 70, 70],   [255, 85, 255],  [255, 240, 75],  [255, 255, 255]
+      ];
+
+      // Discord SGR 30..37 foreground ANSI colors
+      const DISCORD_ANSI = [
+        { code: 30, rgb: [79, 84, 92] },
+        { code: 31, rgb: [220, 50, 47] },
+        { code: 32, rgb: [133, 153, 0] },
+        { code: 33, rgb: [181, 137, 0] },
+        { code: 34, rgb: [38, 139, 210] },
+        { code: 35, rgb: [211, 54, 130] },
+        { code: 36, rgb: [42, 161, 152] },
+        { code: 37, rgb: [255, 255, 255] }
+      ];
+
+      const ASCII_RAMP = " .:-=+*#%@";
+      const BLOCK_RAMP = " ░▒▓█";
+
+      // Build deterministic 255-color 24-bit palette (6x7x6 RGB cube = 252 + 3 extra warm Backrooms/gray tones)
+      function buildFixed255Palette() {
+        const pal = [];
+        const rSteps = [0, 51, 102, 153, 204, 255];
+        const gSteps = [0, 42, 85, 128, 170, 212, 255];
+        const bSteps = [0, 51, 102, 153, 204, 255];
+        for (let r of rSteps) {
+          for (let g of gSteps) {
+            for (let b of bSteps) {
+              pal.push([r, g, b]);
+            }
+          }
+        }
+        pal.push([188, 168, 72], [232, 214, 98], [32, 36, 44]);
+        return pal.slice(0, 255);
+      }
+
+      const PAL255 = buildFixed255Palette();
+
+      function nearest255Index(r, g, b) {
+        const ri = Math.min(5, Math.round((r / 255) * 5));
+        const gi = Math.min(6, Math.round((g / 255) * 6));
+        const bi = Math.min(5, Math.round((b / 255) * 5));
+        let bestIdx = ri * 42 + gi * 6 + bi;
+        let bestD = (r - PAL255[bestIdx][0]) ** 2 + (g - PAL255[bestIdx][1]) ** 2 + (b - PAL255[bestIdx][2]) ** 2;
+        for (let k = 252; k < 255; k++) {
+          const d = (r - PAL255[k][0]) ** 2 + (g - PAL255[k][1]) ** 2 + (b - PAL255[k][2]) ** 2;
+          if (d < bestD) { bestD = d; bestIdx = k; }
+        }
+        return bestIdx;
+      }
+
+      function nearestUefi16(r, g, b) {
+        let best = 0, bestD = 1e9;
+        for (let i = 1; i < 16; i++) {
+          const c = UEFI_16_PALETTE[i];
+          const d = (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
+          if (d < bestD) { bestD = d; best = i; }
+        }
+        return best;
+      }
+
+      const canvas = document.getElementById("gopCanvas");
+      const ctx = canvas.getContext("2d", { alpha: false });
+      const workCanvas = document.createElement("canvas");
+      const workCtx = workCanvas.getContext("2d", { willReadFrequently: true });
+      const procCanvas = document.createElement("canvas");
+      procCanvas.width = 640;
+      procCanvas.height = 360;
+      const procCtx = procCanvas.getContext("2d");
+
+      const videoEl = document.getElementById("hiddenVideo");
+      let loadedImage = null;
+      let sourceKind = "demo"; // 'demo' | 'video' | 'image'
+      let isPlaying = true;
+      let demoTime = 0;
+      const DEMO_DURATION = 6.5;
+
+      let state = {
+        mode: "gop",
+        gridW: 320,
+        gridH: 180,
+        fps: 24,
+        sharpness: 0.60,
+        tol: 10
+      };
+
+      let prevScreenIdx = new Uint8Array(320 * 180);
+      let hasPrevFrame = false;
+      let lastFrameTick = performance.now();
+      let emaBytesPerFrame = 0;
+
+      const BOOT_LINES = [
+        { ts: "0.000000", sub: "Linux version 6.12.6-amd64", msg: "#1 SMP PREEMPT_DYNAMIC" },
+        { ts: "0.002018", sub: "tsc", msg: "Fast TSC calibration using PIT: 3792.84 MHz" },
+        { ts: "0.004128", sub: "ACPI", msg: "Core revision 20240827 — RSDP/XSDT/FADT/MCFG/DMAR" },
+        { ts: "0.012309", sub: "APIC", msg: "Switched APIC routing to physical x2apic" },
+        { ts: "0.022045", sub: "pci 0000:00:06.0", msg: "PCIe Gen4 Root Port x4 [bus 02]" },
+        { ts: "0.026318", sub: "DMAR", msg: "IOMMU enabled: IRQ remapping active" },
+        { ts: "0.042110", sub: "nvme nvme0", msg: "16/0/0 I/O queues, Namespace 1 ready" },
+        { ts: "0.049811", sub: "xhci_hcd", msg: "USB 3.2 Enhanced SuperSpeed (20 Gbps)" },
+        { ok: true, verb: "Mounted ", cyan: "/sys/firmware/efi/efivars", white: " — EFI Variables." },
+        { ok: true, verb: "Started ", cyan: "", white: "Journal Service (systemd-journald)." },
+        { ok: true, verb: "Finished ", cyan: "", white: "Coldplug All udev Devices." },
+        { ok: true, verb: "Found device ", cyan: "/dev/nvme0n1p1", white: " — EFI System Partition." },
+        { ok: true, verb: "Mounted ", cyan: "/boot/efi", white: " — FAT32 ESP Volume." },
+        { ok: true, verb: "Started ", cyan: "enp4s0", white: " — Network Configuration." },
+        { ok: true, verb: "Reached target ", cyan: "", white: "Multi-User System." },
+        { ok: true, verb: "Reached target ", cyan: "", white: "Graphical Interface." },
+        { ok: false, verb: "Starting ", cyan: "GOP->Blt()", white: " — 24-bit 320x180 Stream..." }
+      ];
+
+      function drawProceduralSource(tSec) {
+        const w = procCanvas.width, h = procCanvas.height;
+        procCtx.fillStyle = "#000";
+        procCtx.fillRect(0, 0, w, h);
+
+        if (tSec < 2.3) {
+          const count = Math.max(1, Math.min(BOOT_LINES.length, Math.floor((tSec / 2.1) * BOOT_LINES.length) + 1));
+          procCtx.font = "13px Consolas, monospace";
+          let y = 22;
+          for (let i = 0; i < count; i++) {
+            const row = BOOT_LINES[i];
+            let x = 14;
+            if (row.ts) {
+              procCtx.fillStyle = "#b4bcc8";
+              const s1 = `[    ${row.ts}] `;
+              procCtx.fillText(s1, x, y);
+              x += procCtx.measureText(s1).width;
+              procCtx.fillStyle = "#ffffff";
+              const s2 = `${row.sub}: `;
+              procCtx.fillText(s2, x, y);
+              x += procCtx.measureText(s2).width;
+              procCtx.fillStyle = "#b4bcc8";
+              procCtx.fillText(row.msg, x, y);
+            } else {
+              if (row.ok) {
+                procCtx.fillStyle = "#b4bcc8";
+                procCtx.fillText("[  ", x, y);
+                x += procCtx.measureText("[  ").width;
+                procCtx.fillStyle = "#55ff55";
+                procCtx.fillText("OK", x, y);
+                x += procCtx.measureText("OK").width;
+                procCtx.fillStyle = "#b4bcc8";
+                procCtx.fillText("  ] ", x, y);
+                x += procCtx.measureText("  ] ").width;
+              } else {
+                x += procCtx.measureText("         ").width;
+              }
+              procCtx.fillStyle = "#c8d0dc";
+              procCtx.fillText(row.verb, x, y);
+              x += procCtx.measureText(row.verb).width;
+              if (row.cyan) {
+                procCtx.fillStyle = "#55ffff";
+                procCtx.fillText(row.cyan, x, y);
+                x += procCtx.measureText(row.cyan).width;
+              }
+              procCtx.fillStyle = "#ffffff";
+              procCtx.fillText(row.white, x, y);
+            }
+            y += 19;
+          }
+          return;
+        }
+
+        // Animated 3D Backrooms / Cyber-Corridor scene (2.3s .. 6.5s)
+        const vt = (tSec - 2.3) / 4.2;
+        const horizon = h * 0.48;
+        const skyGrad = procCtx.createLinearGradient(0, 0, 0, horizon);
+        skyGrad.addColorStop(0, "#121007");
+        skyGrad.addColorStop(1, "#3b3212");
+        procCtx.fillStyle = skyGrad;
+        procCtx.fillRect(0, 0, w, horizon);
+
+        // Ceiling fluorescent fixtures scrolling in perspective
+        for (let z = 0; z < 8; z++) {
+          const depth = ((z + (vt * 6) % 1) / 8);
+          const py = horizon - Math.pow(depth, 1.8) * (horizon - 12);
+          const lw = 24 + Math.pow(depth, 1.6) * 240;
+          const lh = Math.max(2, depth * 12);
+          procCtx.fillStyle = "#fffbe0";
+          procCtx.fillRect((w - lw) / 2, py - lh / 2, lw, lh);
+        }
+
+        // Warm ochre floor & Backrooms yellow pillars
+        const floorGrad = procCtx.createLinearGradient(0, horizon, 0, h);
+        floorGrad.addColorStop(0, "#33290f");
+        floorGrad.addColorStop(1, "#8f782d");
+        procCtx.fillStyle = floorGrad;
+        procCtx.fillRect(0, horizon, w, h - horizon);
+
+        for (let i = 0; i < 7; i++) {
+          const p = ((i + (vt * 4) % 1) / 7);
+          const scale = Math.pow(p, 1.7);
+          const spread = 45 + scale * 310;
+          const pw = Math.max(6, scale * 58);
+          const ph = 36 + scale * 300;
+          const sway = Math.sin(vt * Math.PI * 2) * 18 * (1 - scale);
+          const lum = Math.min(245, Math.floor(110 + scale * 135));
+          procCtx.fillStyle = `rgb(${lum}, ${Math.floor(lum * 0.88)}, ${Math.floor(lum * 0.34)})`;
+          procCtx.fillRect(w / 2 - spread - pw + sway, horizon - ph / 2, pw, ph);
+          procCtx.fillRect(w / 2 + spread + sway, horizon - ph / 2, pw, ph);
+        }
+
+        // HUD telemetry bar
+        procCtx.fillStyle = "rgba(8, 10, 14, 0.78)";
+        procCtx.fillRect(24, h - 42, w - 48, 24);
+        procCtx.fillStyle = "#3ee08f";
+        procCtx.fillRect(26, h - 40, Math.floor((w - 52) * vt), 20);
+      }
+
+      function sampleAndSharpenGrid(gw, gh, sharpStrength) {
+        workCanvas.width = gw;
+        workCanvas.height = gh;
+        workCtx.fillStyle = "#000";
+        workCtx.fillRect(0, 0, gw, gh);
+
+        let src = procCanvas;
+        let sw = procCanvas.width, sh = procCanvas.height;
+        if (sourceKind === "video" && videoEl.readyState >= 2) {
+          src = videoEl;
+          sw = videoEl.videoWidth || gw;
+          sh = videoEl.videoHeight || gh;
+        } else if (sourceKind === "image" && loadedImage) {
+          src = loadedImage;
+          sw = loadedImage.naturalWidth || gw;
+          sh = loadedImage.naturalHeight || gh;
+        } else {
+          drawProceduralSource(demoTime);
+        }
+
+        // Letterbox-preserving fit into gw x gh
+        const srcAspect = sw / Math.max(1, sh);
+        const dstAspect = gw / gh;
+        let dw = gw, dh = gh, dx = 0, dy = 0;
+        if (srcAspect > dstAspect) {
+          dh = Math.round(gw / srcAspect);
+          dy = Math.floor((gh - dh) / 2);
+        } else {
+          dw = Math.round(gh * srcAspect);
+          dx = Math.floor((gw - dw) / 2);
+        }
+        workCtx.drawImage(src, dx, dy, dw, dh);
+
+        const imgData = workCtx.getImageData(0, 0, gw, gh);
+        const srcPx = imgData.data;
+        const outRgb = new Uint8ClampedArray(gw * gh * 3);
+
+        // Contrast + thresholded 4-neighbor unsharp mask matching tools/video_to_color_ascii.py
+        for (let y = 0; y < gh; y++) {
+          for (let x = 0; x < gw; x++) {
+            const idx4 = (y * gw + x) * 4;
+            const idx3 = (y * gw + x) * 3;
+            for (let c = 0; c < 3; c++) {
+              let v = (srcPx[idx4 + c] - 124) * 1.09 + 126;
+              if (sharpStrength > 0.01 && x > 0 && x + 1 < gw && y > 0 && y + 1 < gh) {
+                const up = srcPx[((y - 1) * gw + x) * 4 + c];
+                const dn = srcPx[((y + 1) * gw + x) * 4 + c];
+                const lf = srcPx[(y * gw + (x - 1)) * 4 + c];
+                const rt = srcPx[(y * gw + (x + 1)) * 4 + c];
+                const blur = (up + dn + lf + rt + srcPx[idx4 + c] * 2) / 6;
+                const detail = srcPx[idx4 + c] - blur;
+                if (Math.abs(detail) >= 3.5) {
+                  v += detail * sharpStrength;
+                }
+              }
+              outRgb[idx3 + c] = v < 0 ? 0 : v > 255 ? 255 : v;
+            }
+          }
+        }
+        return outRgb;
+      }
+
+      function computeFrameRle(gridRgb, gw, gh, tol, forceKeyframe) {
+        const n = gw * gh;
+        if (prevScreenIdx.length !== n) {
+          prevScreenIdx = new Uint8Array(n);
+          forceKeyframe = true;
+        }
+        const emit = new Uint8Array(n);
+        let skipped = 0;
+
+        for (let i = 0; i < n; i++) {
+          const r = gridRgb[i * 3], g = gridRgb[i * 3 + 1], b = gridRgb[i * 3 + 2];
+          const idx = nearest255Index(r, g, b);
+          if (!forceKeyframe) {
+            const prevIdx = prevScreenIdx[i];
+            const pc = PAL255[prevIdx];
+            const maxDiff = Math.max(Math.abs(r - pc[0]), Math.abs(g - pc[1]), Math.abs(b - pc[2]));
+            if (idx === prevIdx || maxDiff <= tol) {
+              emit[i] = 255;
+              skipped++;
+              continue;
+            }
+          }
+          emit[i] = idx;
+          prevScreenIdx[i] = idx;
+        }
+
+        const tokens = [];
+        let cur = emit[0], len = 1;
+        for (let i = 1; i < n; i++) {
+          if (emit[i] === cur && len < 255) {
+            len++;
+          } else {
+            tokens.push(cur | (len << 8));
+            cur = emit[i];
+            len = 1;
+          }
+        }
+        tokens.push(cur | (len << 8));
+        return { tokens, skipped, total: n };
+      }
+
+      function renderCanvasFrame(gridRgb, gw, gh) {
+        const cw = canvas.width, ch = canvas.height;
+        const rle = computeFrameRle(gridRgb, gw, gh, state.tol, !hasPrevFrame);
+        hasPrevFrame = true;
+
+        if (state.mode === "gop") {
+          const img = ctx.createImageData(cw, ch);
+          const dst = img.data;
+          const sx = cw / gw, sy = ch / gh;
+          const scanMod = Math.max(3, Math.round(sy));
+
+          for (let py = 0; py < ch; py++) {
+            const gy = Math.min(gh - 1, Math.floor(py / sy));
+            const isScanline = (py % scanMod) === (scanMod - 1);
+            for (let px = 0; px < cw; px++) {
+              const gx = Math.min(gw - 1, Math.floor(px / sx));
+              const pIdx = prevScreenIdx[gy * gw + gx];
+              const col = PAL255[pIdx];
+              const di = (py * cw + px) * 4;
+              if (isScanline) {
+                dst[di]     = (col[0] * 7) >> 3;
+                dst[di + 1] = (col[1] * 7) >> 3;
+                dst[di + 2] = (col[2] * 7) >> 3;
+              } else {
+                dst[di]     = col[0];
+                dst[di + 1] = col[1];
+                dst[di + 2] = col[2];
+              }
+              dst[di + 3] = 255;
+            }
+          }
+          ctx.putImageData(img, 0, 0);
+        } else if (state.mode === "blocks") {
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, cw, ch);
+          const cols = Math.min(160, gw);
+          const rows = Math.floor(cols * (9 / 16) * 0.5);
+          const cellW = cw / cols, cellH = ch / rows;
+          ctx.font = `${Math.ceil(cellH)}px Consolas, monospace`;
+          ctx.textBaseline = "top";
+
+          for (let ry = 0; ry < rows; ry++) {
+            const gyTop = Math.min(gh - 1, Math.floor(((ry * 2) / (rows * 2)) * gh));
+            const gyBot = Math.min(gh - 1, Math.floor(((ry * 2 + 1) / (rows * 2)) * gh));
+            for (let rx = 0; rx < cols; rx++) {
+              const gx = Math.min(gw - 1, Math.floor((rx / cols) * gw));
+              const cTop = PAL255[prevScreenIdx[gyTop * gw + gx]];
+              const cBot = PAL255[prevScreenIdx[gyBot * gw + gx]];
+              ctx.fillStyle = `rgb(${cBot[0]},${cBot[1]},${cBot[2]})`;
+              ctx.fillRect(rx * cellW, ry * cellH, Math.ceil(cellW), Math.ceil(cellH));
+              ctx.fillStyle = `rgb(${cTop[0]},${cTop[1]},${cTop[2]})`;
+              ctx.fillRect(rx * cellW, ry * cellH, Math.ceil(cellW), Math.ceil(cellH * 0.5));
+            }
+          }
+        } else {
+          // 16-Color UEFI ASCII
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, cw, ch);
+          const cols = 120, rows = 38;
+          const cellW = cw / cols, cellH = ch / rows;
+          ctx.font = `${Math.floor(cellH * 0.95)}px Consolas, monospace`;
+          ctx.textBaseline = "top";
+
+          for (let ry = 0; ry < rows; ry++) {
+            const gy = Math.min(gh - 1, Math.floor((ry / rows) * gh));
+            for (let rx = 0; rx < cols; rx++) {
+              const gx = Math.min(gw - 1, Math.floor((rx / cols) * gw));
+              const off = (gy * gw + gx) * 3;
+              const r = gridRgb[off], g = gridRgb[off + 1], b = gridRgb[off + 2];
+              const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+              const ci = Math.min(ASCII_RAMP.length - 1, Math.floor(Math.pow(luma, 0.88) * ASCII_RAMP.length));
+              if (ci === 0) continue;
+              const sr = Math.min(255, r * 1.35), sg = Math.min(255, g * 1.35), sb = Math.min(255, b * 1.35);
+              const u16 = UEFI_16_PALETTE[nearestUefi16(sr, sg, sb)];
+              ctx.fillStyle = `rgb(${u16[0]},${u16[1]},${u16[2]})`;
+              ctx.fillText(ASCII_RAMP[ci], rx * cellW, ry * cellH);
+            }
+          }
+        }
+
+        updateTelemetry(rle);
+      }
+
+      function getClipDuration() {
+        if (sourceKind === "video" && Number.isFinite(videoEl.duration) && videoEl.duration > 0) {
+          return videoEl.duration;
+        }
+        if (sourceKind === "image") return 1 / state.fps;
+        return DEMO_DURATION;
+      }
+
+      function updateTelemetry(rle) {
+        const scale1080 = Math.floor(1920 / state.gridW);
+        document.getElementById("statGrid").textContent = `${state.gridW}×${state.gridH} (${scale1080}×)`;
+        document.getElementById("statFps").textContent = `${state.fps} FPS`;
+        document.getElementById("statRuns").textContent = rle.tokens.length.toLocaleString();
+        const skipPct = ((rle.skipped / rle.total) * 100).toFixed(1);
+        document.getElementById("statSkip").textContent = `${skipPct}%`;
+
+        const bytesThisFrame = rle.tokens.length * 2 + 4;
+        emaBytesPerFrame = emaBytesPerFrame === 0 ? bytesThisFrame : (emaBytesPerFrame * 0.85 + bytesThisFrame * 0.15);
+        const totalFrames = Math.max(1, Math.round(getClipDuration() * state.fps));
+        const estBytes = 36864 + 1024 + emaBytesPerFrame * totalFrames;
+        const estMb = estBytes / (1024 * 1024);
+        document.getElementById("statEfiSize").textContent = estMb >= 1 ? `${estMb.toFixed(2)} MB` : `${(estBytes / 1024).toFixed(0)} KB`;
+      }
+
+      function formatSec(s) {
+        const m = Math.floor(s / 60);
+        const rem = (s % 60).toFixed(1).padStart(4, "0");
+        return `${String(m).padStart(2, "0")}:${rem}`;
+      }
+
+      function tick(now) {
+        requestAnimationFrame(tick);
+        const period = 1000 / state.fps;
+        const dt = now - lastFrameTick;
+        if (dt < period) return;
+        lastFrameTick = now - (dt % period);
+
+        if (isPlaying && sourceKind === "demo") {
+          demoTime = (demoTime + period / 1000) % DEMO_DURATION;
+        }
+
+        const curT = sourceKind === "video" ? (videoEl.currentTime || 0) : (sourceKind === "image" ? 0 : demoTime);
+        const durT = getClipDuration();
+        document.getElementById("timeReadout").textContent = `${formatSec(curT)} / ${formatSec(durT)}`;
+        if (durT > 0) {
+          document.getElementById("seekBar").value = String(Math.round((curT / durT) * 1000));
+        }
+
+        const gridRgb = sampleAndSharpenGrid(state.gridW, state.gridH, state.sharpness);
+        renderCanvasFrame(gridRgb, state.gridW, state.gridH);
+      }
+
+      // Controls wiring
+      function setStatus(id, text, cls = "") {
+        const el = document.getElementById(id);
+        el.textContent = text;
+        el.className = "status-note" + (cls ? " " + cls : "");
+      }
+
+      function setPlayIcon(playing) {
+        document.getElementById("playIcon").innerHTML = playing
+          ? '<rect x="6" y="4" width="4" height="16" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" fill="currentColor" stroke="none"/>'
+          : '<polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/>';
+      }
+      setPlayIcon(true);
+
+      document.getElementById("playPauseBtn").addEventListener("click", () => {
+        isPlaying = !isPlaying;
+        if (sourceKind === "video") {
+          isPlaying ? videoEl.play().catch(() => {}) : videoEl.pause();
+        }
+        setPlayIcon(isPlaying);
+      });
+
+      document.getElementById("restartBtn").addEventListener("click", () => {
+        hasPrevFrame = false;
+        if (sourceKind === "video") {
+          videoEl.currentTime = 0;
+          if (isPlaying) videoEl.play().catch(() => {});
+        } else {
+          demoTime = 0;
+        }
+      });
+
+      document.getElementById("seekBar").addEventListener("input", (e) => {
+        const frac = Number(e.target.value) / 1000;
+        hasPrevFrame = false;
+        if (sourceKind === "video" && Number.isFinite(videoEl.duration)) {
+          videoEl.currentTime = frac * videoEl.duration;
+        } else if (sourceKind === "demo") {
+          demoTime = frac * DEMO_DURATION;
+        }
+      });
+
+      function loadFileObject(file) {
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        hasPrevFrame = false;
+        emaBytesPerFrame = 0;
+        document.getElementById("demoBtn").classList.remove("btn-active-source");
+
+        if (file.type.startsWith("image/") && file.type !== "image/gif") {
+          const img = new Image();
+          img.onload = () => {
+            loadedImage = img;
+            sourceKind = "image";
+            videoEl.pause();
+            setStatus("sourceStatus", `Loaded image: ${file.name} (${img.naturalWidth}×${img.naturalHeight})`, "ok");
+          };
+          img.onerror = () => setStatus("sourceStatus", "Could not decode image file.", "err");
+          img.src = url;
+        } else {
+          videoEl.src = url;
+          videoEl.load();
+          videoEl.onloadedmetadata = () => {
+            sourceKind = "video";
+            isPlaying = true;
+            setPlayIcon(true);
+            videoEl.play().catch(() => {});
+            setStatus("sourceStatus", `Loaded video: ${file.name} (${videoEl.videoWidth}×${videoEl.videoHeight}, ${videoEl.duration.toFixed(1)}s)`, "ok");
+          };
+          videoEl.onerror = () => {
+            // Try as image (e.g. animated/static GIF)
+            const img = new Image();
+            img.onload = () => {
+              loadedImage = img;
+              sourceKind = "image";
+              setStatus("sourceStatus", `Loaded graphic: ${file.name}`, "ok");
+            };
+            img.onerror = () => setStatus("sourceStatus", "Unsupported media format. Try .mp4, .webm, .png, or .jpg.", "err");
+            img.src = url;
+          };
+        }
+      }
+
+      document.getElementById("browseBtn").addEventListener("click", () => document.getElementById("fileInput").click());
+      document.getElementById("fileInput").addEventListener("change", (e) => loadFileObject(e.target.files[0]));
+
+      document.getElementById("demoBtn").addEventListener("click", () => {
+        sourceKind = "demo";
+        demoTime = 0;
+        hasPrevFrame = false;
+        emaBytesPerFrame = 0;
+        isPlaying = true;
+        setPlayIcon(true);
+        videoEl.pause();
+        document.getElementById("demoBtn").classList.add("btn-active-source");
+        setStatus("sourceStatus", "Running built-in UEFI boot & cyber-horizon sequence (6.5s).");
+      });
+
+      document.getElementById("loadUrlBtn").addEventListener("click", () => {
+        const rawUrl = document.getElementById("urlInput").value.trim();
+        if (!rawUrl) {
+          setStatus("sourceStatus", "Enter a direct .mp4/.webm/.png URL first.", "err");
+          return;
+        }
+        hasPrevFrame = false;
+        emaBytesPerFrame = 0;
+        document.getElementById("demoBtn").classList.remove("btn-active-source");
+        setStatus("sourceStatus", "Fetching remote media with crossOrigin='anonymous'...");
+
+        if (/\.(png|jpe?g|webp)(\?.*)?$/i.test(rawUrl)) {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            loadedImage = img;
+            sourceKind = "image";
+            setStatus("sourceStatus", `Loaded remote image (${img.naturalWidth}×${img.naturalHeight}).`, "ok");
+          };
+          img.onerror = () => setStatus("sourceStatus", "Remote host blocked CORS or image URL is invalid. Download and drop the file locally.", "err");
+          img.src = rawUrl;
+        } else {
+          videoEl.crossOrigin = "anonymous";
+          videoEl.src = rawUrl;
+          videoEl.load();
+          videoEl.onloadedmetadata = () => {
+            sourceKind = "video";
+            isPlaying = true;
+            setPlayIcon(true);
+            videoEl.play().catch(() => {});
+            setStatus("sourceStatus", `Loaded remote stream (${videoEl.videoWidth}×${videoEl.videoHeight}, ${videoEl.duration.toFixed(1)}s).`, "ok");
+          };
+          videoEl.onerror = () => setStatus("sourceStatus", "Remote server disallowed CORS or stream is not a direct MP4/WebM link. Drop a local file instead.", "err");
+        }
+      });
+
+      const dropZone = document.getElementById("dropZone");
+      ["dragenter", "dragover"].forEach((ev) => {
+        window.addEventListener(ev, (e) => {
+          e.preventDefault();
+          dropZone.classList.add("drag-active");
+        });
+      });
+      ["dragleave", "drop"].forEach((ev) => {
+        window.addEventListener(ev, (e) => {
+          e.preventDefault();
+          dropZone.classList.remove("drag-active");
+          if (ev === "drop" && e.dataTransfer && e.dataTransfer.files.length > 0) {
+            loadFileObject(e.dataTransfer.files[0]);
+          }
+        });
+      });
+
+      document.querySelectorAll("[data-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+          btn.setAttribute("aria-pressed", "true");
+          state.mode = btn.dataset.mode;
+        });
+      });
+
+      document.querySelectorAll("[data-grid]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("[data-grid]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+          btn.setAttribute("aria-pressed", "true");
+          const [w, h] = btn.dataset.grid.split("x").map(Number);
+          state.gridW = w;
+          state.gridH = h;
+          hasPrevFrame = false;
+          emaBytesPerFrame = 0;
+        });
+      });
+
+      document.querySelectorAll("[data-fps]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("[data-fps]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+          btn.setAttribute("aria-pressed", "true");
+          state.fps = Number(btn.dataset.fps);
+          emaBytesPerFrame = 0;
+        });
+      });
+
+      document.getElementById("sharpSlider").addEventListener("input", (e) => {
+        state.sharpness = Number(e.target.value) / 100;
+        document.getElementById("sharpOut").textContent = state.sharpness.toFixed(2);
+      });
+
+      document.getElementById("tolSlider").addEventListener("input", (e) => {
+        state.tol = Number(e.target.value);
+        document.getElementById("tolOut").textContent = String(state.tol);
+        emaBytesPerFrame = 0;
+      });
+
+      // One-click C header exporter (exact Temporal-RLE UINT16 format matching src/main.c)
+      document.getElementById("exportHeaderBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("exportHeaderBtn");
+        const progWrap = document.getElementById("exportProgressWrap");
+        const progBar = document.getElementById("exportProgressBar");
+        btn.disabled = true;
+        progWrap.classList.add("visible");
+        progBar.style.width = "0%";
+
+        try {
+          const gw = state.gridW, gh = state.gridH, fps = state.fps;
+          const dur = Math.min(40, getClipDuration());
+          const totalFrames = sourceKind === "image" ? 1 : Math.max(1, Math.round(dur * fps));
+          const wasPlaying = isPlaying;
+          isPlaying = false;
+          if (sourceKind === "video") videoEl.pause();
+
+          const allTokens = [];
+          const offsets = [0];
+          prevScreenIdx = new Uint8Array(gw * gh);
+
+          for (let f = 0; f < totalFrames; f++) {
+            const t = f / fps;
+            if (sourceKind === "video") {
+              await new Promise((resolve) => {
+                const onSeek = () => { videoEl.removeEventListener("seeked", onSeek); resolve(); };
+                videoEl.addEventListener("seeked", onSeek);
+                videoEl.currentTime = Math.min(t, Math.max(0, videoEl.duration - 0.001));
+              });
+            } else if (sourceKind === "demo") {
+              demoTime = t;
+            }
+
+            const rgb = sampleAndSharpenGrid(gw, gh, state.sharpness);
+            const rle = computeFrameRle(rgb, gw, gh, state.tol, f === 0);
+            for (let k = 0; k < rle.tokens.length; k++) {
+              allTokens.push(rle.tokens[k]);
+            }
+            offsets.push(allTokens.length);
+
+            if (f % 4 === 0 || f + 1 === totalFrames) {
+              const pct = Math.round(((f + 1) / totalFrames) * 100);
+              progBar.style.width = `${pct}%`;
+              setStatus("exportStatus", `Encoding frame ${f + 1} / ${totalFrames} (${pct}%)...`);
+              await new Promise((r) => setTimeout(r, 0));
+            }
+          }
+
+          const frameUs = Math.round(1000000 / fps);
+          const lines = [];
+          lines.push("#pragma once");
+          lines.push('#include "uefi_compat.h"\n');
+          lines.push(`#define GOP_VIDEO_WIDTH       ${gw}U`);
+          lines.push(`#define GOP_VIDEO_HEIGHT      ${gh}U`);
+          lines.push(`#define GOP_VIDEO_FPS         ${fps}U`);
+          lines.push(`#define GOP_VIDEO_FRAME_US    ${frameUs}U`);
+          lines.push(`#define GOP_VIDEO_FRAME_COUNT ${totalFrames}U`);
+          lines.push(`#define GOP_VIDEO_RUN_COUNT   ${allTokens.length}U`);
+          lines.push("#define GOP_VIDEO_SKIP_INDEX  255U\n");
+
+          lines.push("static const UINT32 kGopVideoPalette32[255] = {");
+          for (let i = 0; i < 255; i += 8) {
+            const slice = PAL255.slice(i, i + 8).map(([r, g, b]) => {
+              const bgr0 = (b | (g << 8) | (r << 16)) >>> 0;
+              return "0x" + bgr0.toString(16).toUpperCase().padStart(6, "0") + "U";
+            });
+            lines.push("    " + slice.join(", ") + ",");
+          }
+          lines.push("};\n");
+
+          lines.push("static const UINT32 kGopFrameOffsets[GOP_VIDEO_FRAME_COUNT + 1] = {");
+          for (let i = 0; i < offsets.length; i += 16) {
+            lines.push("    " + offsets.slice(i, i + 16).map((v) => `${v}U`).join(", ") + ",");
+          }
+          lines.push("};\n");
+
+          lines.push("static const UINT16 kGopVideoRunsU16[GOP_VIDEO_RUN_COUNT] = {");
+          for (let i = 0; i < allTokens.length; i += 24) {
+            const row = allTokens.slice(i, i + 24).map((v) => "0x" + v.toString(16).toUpperCase().padStart(4, "0") + "U");
+            lines.push("    " + row.join(",") + ",");
+          }
+          lines.push("};\n");
+
+          const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+          const dlUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = dlUrl;
+          a.download = "video_frames.h";
+          a.click();
+          URL.revokeObjectURL(dlUrl);
+
+          const payloadMb = ((allTokens.length * 2 + offsets.length * 4 + 1020) / (1024 * 1024)).toFixed(2);
+          setStatus("exportStatus", `Exported video_frames.h (${totalFrames} frames, ${payloadMb} MB .rdata).`, "ok");
+
+          isPlaying = wasPlaying;
+          if (wasPlaying && sourceKind === "video") videoEl.play().catch(() => {});
+        } catch (err) {
+          setStatus("exportStatus", "Export failed: canvas is tainted by cross-origin video. Use a local file.", "err");
+        } finally {
+          btn.disabled = false;
+          setTimeout(() => progWrap.classList.remove("visible"), 900);
+        }
+      });
+
+      // Copy compressed Discord ```ansi block guaranteed <= 2000 chars
+      function buildDiscordAnsiAtSize(cols, rows) {
+        const rgb = sampleAndSharpenGrid(cols, rows, state.sharpness);
+        let out = "```ansi\n";
+        for (let y = 0; y < rows; y++) {
+          let curCode = -1;
+          for (let x = 0; x < cols; x++) {
+            const off = (y * cols + x) * 3;
+            const r = rgb[off], g = rgb[off + 1], b = rgb[off + 2];
+            const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            const bi = Math.min(BLOCK_RAMP.length - 1, Math.floor(Math.pow(luma, 0.9) * BLOCK_RAMP.length));
+            const ch = BLOCK_RAMP[bi];
+            if (ch === " ") {
+              out += " ";
+              continue;
+            }
+            let bestCode = 37, bestD = 1e9;
+            for (const item of DISCORD_ANSI) {
+              const d = (r - item.rgb[0]) ** 2 + (g - item.rgb[1]) ** 2 + (b - item.rgb[2]) ** 2;
+              if (d < bestD) { bestD = d; bestCode = item.code; }
+            }
+            if (bestCode !== curCode) {
+              out += `\x1b[0;${bestCode}m`;
+              curCode = bestCode;
+            }
+            out += ch;
+          }
+          out += "\n";
+        }
+        out += "\x1b[0m```";
+        return out;
+      }
+
+      document.getElementById("copyAnsiBtn").addEventListener("click", async () => {
+        try {
+          const sizes = [[58, 18], [52, 16], [46, 14], [40, 12], [34, 10], [28, 8]];
+          let chosen = "";
+          for (const [cw, ch] of sizes) {
+            const candidate = buildDiscordAnsiAtSize(cw, ch);
+            chosen = candidate;
+            if (candidate.length <= 1990) break;
+          }
+          await navigator.clipboard.writeText(chosen);
+          setStatus("exportStatus", `Copied Discord ANSI frame (${chosen.length} / 2000 chars).`, "ok");
+        } catch (err) {
+          setStatus("exportStatus", "Clipboard access failed or canvas is CORS-tainted.", "err");
+        }
+      });
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>
