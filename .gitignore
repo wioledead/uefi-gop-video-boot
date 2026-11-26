@@ -8,6 +8,7 @@
 raw_download*
 src/video_frames.h
 tools/download_clip.py
+HABR_ARTICLE.md
 
 # Build artifacts & UEFI binaries
 *.o
