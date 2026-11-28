@@ -17,8 +17,8 @@
       --separator: rgba(255, 255, 255, 0.08);
 
       --label-primary: rgba(245, 245, 247, 0.96);
-      --label-secondary: rgba(235, 235, 245, 0.62);
-      --label-tertiary: rgba(235, 235, 245, 0.38);
+      --label-secondary: rgba(235, 235, 245, 0.68);
+      --label-tertiary: rgba(235, 235, 245, 0.58);
 
       --tint-blue: #0a84ff;
       --tint-green: #30d158;
@@ -300,10 +300,89 @@
     }
 
     .apple-slider-fill {
+      position: relative;
       height: 100%;
       width: 0%;
       border-radius: var(--radius-pill);
       background: rgba(255, 255, 255, 0.88);
+    }
+
+    .trim-window {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0%;
+      width: 100%;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+      transition: background 140ms ease, box-shadow 140ms ease;
+    }
+
+    .apple-slider.is-trimmed .trim-window {
+      background: rgba(255, 159, 10, 0.22);
+      box-shadow: inset 0 0 0 1px rgba(255, 159, 10, 0.65);
+    }
+
+    .apple-slider.is-trimmed .apple-slider-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+    }
+
+    .trim-handle {
+      position: absolute;
+      top: 50%;
+      width: 8px;
+      height: 18px;
+      margin-top: -9px;
+      border-radius: 3px;
+      background: rgba(245, 245, 247, 0.72);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(0, 0, 0, 0.28);
+      cursor: ew-resize;
+      z-index: 3;
+      touch-action: none;
+      will-change: transform, left;
+      transition: background 140ms ease;
+    }
+
+    .apple-slider.is-trimmed .trim-handle,
+    .trim-handle:hover,
+    .trim-handle:focus-visible {
+      background: var(--tint-amber);
+    }
+
+    .trim-handle::before {
+      content: "";
+      position: absolute;
+      inset: -5px -6px;
+    }
+
+    .trim-handle::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 1.5px;
+      height: 8px;
+      transform: translate(-50%, -50%);
+      border-radius: 1px;
+      background: rgba(0, 0, 0, 0.55);
+    }
+
+    .trim-handle.trim-in {
+      left: 0%;
+      margin-left: -8px;
+    }
+
+    .trim-handle.trim-out {
+      left: 100%;
+      margin-left: 0px;
+    }
+
+    .floating-transport.is-static-image .trim-handle,
+    .floating-transport.is-static-image .trim-window {
+      display: none;
     }
 
     .apple-slider-thumb {
@@ -318,6 +397,7 @@
       background: #fff;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(0, 0, 0, 0.15);
       pointer-events: none;
+      z-index: 4;
       will-change: transform, left;
     }
 
@@ -574,6 +654,40 @@
       margin: 0.1rem 0;
     }
 
+    .trim-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+    }
+
+    .trim-reset-btn {
+      border: none;
+      border-radius: 6px;
+      padding: 0.18rem 0.5rem;
+      background: rgba(255, 159, 10, 0.18);
+      color: var(--tint-amber);
+      font-family: var(--font-ui);
+      font-size: 0.73rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 140ms ease;
+    }
+
+    .trim-reset-btn:hover {
+      background: rgba(255, 159, 10, 0.28);
+    }
+
+    .trim-reset-btn[hidden] {
+      display: none;
+    }
+
+    .soft-btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
     /* Clean Inspector Key-Value Readout */
     .kv-list {
       display: flex;
@@ -777,8 +891,11 @@
 
           <div class="apple-slider" id="scrubSlider" role="slider" tabindex="0" aria-label="Timeline position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
             <div class="apple-slider-track">
+              <div class="trim-window" id="trimWindow"></div>
               <div class="apple-slider-fill" id="scrubFill"></div>
             </div>
+            <div class="trim-handle trim-in" id="trimInHandle" role="slider" tabindex="0" aria-label="Trim start" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            <div class="trim-handle trim-out" id="trimOutHandle" role="slider" tabindex="0" aria-label="Trim end" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div>
             <div class="apple-slider-thumb" id="scrubThumb"></div>
           </div>
 
@@ -791,7 +908,7 @@
           <span class="status-dot" id="sourceDot"></span>
           <span id="sourceStatus">Built-in UEFI boot &amp; corridor sequence</span>
         </div>
-        <span>Drag any clip onto the display</span>
+        <span>Drag clip onto display · Drag handles on timeline to trim</span>
       </div>
     </section>
 
@@ -813,16 +930,40 @@
             <input class="url-input" id="urlInput" type="url" placeholder="Direct video URL (CORS)…" aria-label="Direct media URL">
             <button class="url-go-btn pressable" id="loadUrlBtn" type="button">Load</button>
           </div>
+          <div class="trim-meta-row" id="trimMetaRow">
+            <span class="param-label">Clip range</span>
+            <span class="param-value" id="trimRangeOut">00:00.0 – 00:06.5 (6.5s)</span>
+            <button class="trim-reset-btn pressable" id="trimResetBtn" type="button" hidden>Reset</button>
+          </div>
         </div>
       </div>
 
       <div class="group-block">
         <h2 class="group-heading">Appearance</h2>
-        <div class="apple-segmented" data-seg="mode" role="radiogroup" aria-label="Render mode">
-          <div class="seg-thumb"></div>
-          <button class="seg-option" type="button" role="radio" data-val="gop" aria-checked="true">GOP 24-bit</button>
-          <button class="seg-option" type="button" role="radio" data-val="blocks" aria-checked="false">Half-Blocks</button>
-          <button class="seg-option" type="button" role="radio" data-val="ascii" aria-checked="false">16-Color</button>
+        <div class="inset-surface">
+          <div class="param-item">
+            <div class="param-header">
+              <span class="param-label">Render mode</span>
+            </div>
+            <div class="apple-segmented" data-seg="mode" role="radiogroup" aria-label="Render mode">
+              <div class="seg-thumb"></div>
+              <button class="seg-option" type="button" role="radio" data-val="gop" aria-checked="true">GOP 24-bit</button>
+              <button class="seg-option" type="button" role="radio" data-val="blocks" aria-checked="false">Half-Blocks</button>
+              <button class="seg-option" type="button" role="radio" data-val="ascii" aria-checked="false">16-Color</button>
+            </div>
+          </div>
+
+          <div class="param-item">
+            <div class="param-header">
+              <span class="param-label">Aspect framing</span>
+              <span class="param-value" id="framingHint">Letterbox</span>
+            </div>
+            <div class="apple-segmented" data-seg="framing" role="radiogroup" aria-label="Aspect framing">
+              <div class="seg-thumb"></div>
+              <button class="seg-option" type="button" role="radio" data-val="fit" aria-checked="true">Fit</button>
+              <button class="seg-option" type="button" role="radio" data-val="fill" aria-checked="false">Fill 16:9</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -876,6 +1017,26 @@
               <div class="apple-slider-track"><div class="apple-slider-fill"></div></div>
               <div class="apple-slider-thumb"></div>
             </div>
+          </div>
+
+          <div class="hairline"></div>
+
+          <div class="param-item">
+            <div class="param-header">
+              <span class="param-label">ESP size budget</span>
+              <span class="param-value" id="budgetHint">Max 12 MB</span>
+            </div>
+            <div class="apple-segmented" data-seg="budget" role="radiogroup" aria-label="Target binary size budget">
+              <div class="seg-thumb"></div>
+              <button class="seg-option" type="button" role="radio" data-val="8" aria-checked="false">8 MB</button>
+              <button class="seg-option" type="button" role="radio" data-val="12" aria-checked="true">12 MB</button>
+              <button class="seg-option" type="button" role="radio" data-val="16" aria-checked="false">16 MB</button>
+              <button class="seg-option" type="button" role="radio" data-val="24" aria-checked="false">24 MB</button>
+            </div>
+            <button class="soft-btn pressable" id="autoFitBtn" type="button">
+              <svg class="ico" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <span id="autoFitLabel">Auto-Fit Tolerance to Budget</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1132,6 +1293,7 @@
         }
 
         el.addEventListener("pointerdown", (e) => {
+          if (e.target && e.target.closest && e.target.closest(".trim-handle")) return;
           dragging = true;
           el.setPointerCapture(e.pointerId);
           if (onDragStart) onDragStart();
@@ -1265,6 +1427,7 @@
       let sourceKind = "demo";
       let isPlaying = true;
       let isExporting = false;
+      let isAutoFitting = false;
       let wasPlayingBeforeScrub = false;
       let scrubPreviewTime = 0;
       let pendingSeekSec = null;
@@ -1276,11 +1439,15 @@
 
       const state = {
         mode: "gop",
+        framing: "fit",
         gridW: 320,
         gridH: 180,
         fps: 24,
         sharpness: 0.60,
-        tol: 10
+        tol: 10,
+        budgetMb: 12,
+        trimIn: 0.0,
+        trimOut: 1.0
       };
 
       let prevScreenIdx = new Uint8Array(320 * 180);
@@ -1315,14 +1482,14 @@
       }
 
       videoEl.addEventListener("seeked", () => {
-        if (isExporting) return;
+        if (isExporting || isAutoFitting) return;
         hasPrevFrame = false;
         dirtyRender = true;
         if (pendingSeekSec !== null && !videoEl.seeking) {
           const next = pendingSeekSec;
           pendingSeekSec = null;
           videoEl.currentTime = next;
-        } else if (!scrubCtrl.isDragging && wasPlayingBeforeScrub && isPlaying && sourceKind === "video") {
+        } else if (!scrubCtrl.isDragging && !isTrimHandleDragging && wasPlayingBeforeScrub && isPlaying && sourceKind === "video") {
           wasPlayingBeforeScrub = false;
           videoEl.play().catch(() => {});
         }
@@ -1475,15 +1642,27 @@
 
         const srcAspect = sw / Math.max(1, sh);
         const dstAspect = gw / gh;
-        let dw = gw, dh = gh, dx = 0, dy = 0;
-        if (srcAspect > dstAspect) {
-          dh = Math.round(gw / srcAspect);
-          dy = Math.floor((gh - dh) / 2);
+        if (state.framing === "fill") {
+          let sx = 0, sy = 0, sCropW = sw, sCropH = sh;
+          if (srcAspect > dstAspect) {
+            sCropW = sh * dstAspect;
+            sx = (sw - sCropW) * 0.5;
+          } else {
+            sCropH = sw / dstAspect;
+            sy = (sh - sCropH) * 0.5;
+          }
+          workCtx.drawImage(src, sx, sy, Math.max(1, sCropW), Math.max(1, sCropH), 0, 0, gw, gh);
         } else {
-          dw = Math.round(gh * srcAspect);
-          dx = Math.floor((gw - dw) / 2);
+          let dw = gw, dh = gh, dx = 0, dy = 0;
+          if (srcAspect > dstAspect) {
+            dh = Math.round(gw / srcAspect);
+            dy = Math.floor((gh - dh) / 2);
+          } else {
+            dw = Math.round(gh * srcAspect);
+            dx = Math.floor((gw - dw) / 2);
+          }
+          workCtx.drawImage(src, dx, dy, dw, dh);
         }
-        workCtx.drawImage(src, dx, dy, dw, dh);
 
         const srcPx = workCtx.getImageData(0, 0, gw, gh).data;
         const outRgb = new Uint8ClampedArray(gw * gh * 3);
@@ -1649,6 +1828,19 @@
         return DEMO_DURATION;
       }
 
+      function getTrimBoundsSec() {
+        const dur = getClipDuration();
+        if (sourceKind === "image") return [0, dur];
+        const t0 = Math.max(0, Math.min(dur, state.trimIn * dur));
+        const t1 = Math.max(t0 + Math.min(dur, 1 / state.fps), Math.min(dur, state.trimOut * dur));
+        return [t0, t1];
+      }
+
+      function getTrimmedDuration() {
+        const [t0, t1] = getTrimBoundsSec();
+        return Math.max(1 / state.fps, t1 - t0);
+      }
+
       function updateTelemetry(rle) {
         const scale1080 = Math.floor(1920 / state.gridW);
         const exact = (1920 % state.gridW === 0 && 1080 % state.gridH === 0) ? "exact" : "centered";
@@ -1658,7 +1850,7 @@
 
         const bytesThisFrame = rle.tokens.length * 2 + 4;
         emaBytesPerFrame = emaBytesPerFrame === 0 ? bytesThisFrame : (emaBytesPerFrame * 0.86 + bytesThisFrame * 0.14);
-        const totalFrames = Math.max(1, Math.round(getClipDuration() * state.fps));
+        const totalFrames = sourceKind === "image" ? 1 : Math.max(1, Math.round(getTrimmedDuration() * state.fps));
         const estBytes = 36864 + 1024 + emaBytesPerFrame * totalFrames;
         const estMb = estBytes / (1024 * 1024);
         document.getElementById("statEfiSize").textContent = estMb >= 1 ? `${estMb.toFixed(2)} MB` : `${(estBytes / 1024).toFixed(0)} KB`;
@@ -1670,8 +1862,148 @@
         return `${String(m).padStart(2, "0")}:${rem}`;
       }
 
+      const scrubSliderEl = document.getElementById("scrubSlider");
+      const scrubFillEl = document.getElementById("scrubFill");
+      const trimWindowEl = document.getElementById("trimWindow");
+      const trimInHandleEl = document.getElementById("trimInHandle");
+      const trimOutHandleEl = document.getElementById("trimOutHandle");
+      const trimRangeOutEl = document.getElementById("trimRangeOut");
+      const trimResetBtnEl = document.getElementById("trimResetBtn");
+      const transportHudEl = document.getElementById("transportHud");
+      let isTrimHandleDragging = false;
+
+      function syncTrimVisuals(playheadNorm = null) {
+        const isImg = sourceKind === "image";
+        transportHudEl.classList.toggle("is-static-image", isImg);
+        document.getElementById("trimMetaRow").style.display = isImg ? "none" : "flex";
+        if (isImg) return;
+
+        const inPct = (state.trimIn * 100).toFixed(3) + "%";
+        const outPct = (state.trimOut * 100).toFixed(3) + "%";
+        const spanPct = (Math.max(0, state.trimOut - state.trimIn) * 100).toFixed(3) + "%";
+        const isTrimmed = state.trimIn > 0.002 || state.trimOut < 0.998;
+
+        scrubSliderEl.classList.toggle("is-trimmed", isTrimmed);
+        trimWindowEl.style.left = inPct;
+        trimWindowEl.style.width = spanPct;
+        trimInHandleEl.style.left = inPct;
+        trimOutHandleEl.style.left = outPct;
+        trimInHandleEl.setAttribute("aria-valuenow", String(Math.round(state.trimIn * 100)));
+        trimOutHandleEl.setAttribute("aria-valuenow", String(Math.round(state.trimOut * 100)));
+        trimResetBtnEl.hidden = !isTrimmed;
+
+        if (playheadNorm !== null && isTrimmed) {
+          const clampedPlay = Math.max(state.trimIn, Math.min(state.trimOut, playheadNorm));
+          scrubFillEl.style.left = inPct;
+          scrubFillEl.style.width = ((clampedPlay - state.trimIn) * 100).toFixed(3) + "%";
+        } else if (!isTrimmed) {
+          scrubFillEl.style.left = "0%";
+        }
+
+        const [t0, t1] = getTrimBoundsSec();
+        const segDur = Math.max(0, t1 - t0);
+        trimRangeOutEl.textContent = `${formatSec(t0)} – ${formatSec(t1)} (${segDur.toFixed(1)}s)`;
+      }
+
+      function resetTrimRange() {
+        state.trimIn = 0.0;
+        state.trimOut = 1.0;
+        emaBytesPerFrame = 0;
+        dirtyRender = true;
+        syncTrimVisuals();
+      }
+
+      trimResetBtnEl.addEventListener("click", () => {
+        resetTrimRange();
+      });
+
+      function bindTrimHandle(handleEl, which) {
+        const scaleSpring = new FluidSpring(1.0, { damping: 0.84, response: 0.22 });
+        const tickHandle = (dt) => {
+          const m = scaleSpring.step(dt);
+          handleEl.style.transform = scaleSpring.x === 1 ? "" : `scale(${scaleSpring.x.toFixed(3)})`;
+          return m;
+        };
+
+        const applyNorm = (rawNorm) => {
+          const dur = Math.max(0.2, getClipDuration());
+          const minGap = Math.min(0.25, Math.max(2 / state.fps, 0.15) / dur);
+          if (which === "in") {
+            state.trimIn = Math.max(0, Math.min(state.trimOut - minGap, rawNorm));
+          } else {
+            state.trimOut = Math.min(1, Math.max(state.trimIn + minGap, rawNorm));
+          }
+          const previewNorm = which === "in" ? state.trimIn : state.trimOut;
+          scrubPreviewTime = previewNorm * dur;
+          scrubCtrl.setValue(previewNorm);
+          syncTrimVisuals(previewNorm);
+          hasPrevFrame = false;
+          dirtyRender = true;
+          emaBytesPerFrame = 0;
+          if (sourceKind === "video" && Number.isFinite(videoEl.duration)) {
+            requestVideoSeek(previewNorm * videoEl.duration);
+          } else if (sourceKind === "demo") {
+            demoTime = previewNorm * dur;
+          }
+        };
+
+        let activeDrag = false;
+        handleEl.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          activeDrag = true;
+          isTrimHandleDragging = true;
+          handleEl.setPointerCapture(e.pointerId);
+          wasPlayingBeforeScrub = isPlaying;
+          if (sourceKind === "video") videoEl.pause();
+          scaleSpring.setTarget(1.22);
+          registerSpringJob(tickHandle);
+        });
+
+        handleEl.addEventListener("pointermove", (e) => {
+          if (!activeDrag) return;
+          const rect = scrubSliderEl.querySelector(".apple-slider-track").getBoundingClientRect();
+          const norm = Math.max(0, Math.min(1, (e.clientX - rect.left) / Math.max(1, rect.width)));
+          applyNorm(norm);
+        });
+
+        const endHandleDrag = (e) => {
+          if (!activeDrag) return;
+          e.stopPropagation();
+          activeDrag = false;
+          isTrimHandleDragging = false;
+          scaleSpring.setTarget(1.0);
+          registerSpringJob(tickHandle);
+          const dur = getClipDuration();
+          const resumeSec = state.trimIn * dur;
+          if (sourceKind === "video" && Number.isFinite(videoEl.duration)) {
+            requestVideoSeek(resumeSec);
+            if (!videoEl.seeking && wasPlayingBeforeScrub && isPlaying) {
+              wasPlayingBeforeScrub = false;
+              videoEl.play().catch(() => {});
+            }
+          } else if (sourceKind === "demo") {
+            demoTime = resumeSec;
+            wasPlayingBeforeScrub = false;
+          }
+        };
+        handleEl.addEventListener("pointerup", endHandleDrag);
+        handleEl.addEventListener("pointercancel", endHandleDrag);
+
+        handleEl.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+            e.preventDefault();
+            e.stopPropagation();
+            applyNorm((which === "in" ? state.trimIn : state.trimOut) - 0.02);
+          } else if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+            e.preventDefault();
+            e.stopPropagation();
+            applyNorm((which === "in" ? state.trimIn : state.trimOut) + 0.02);
+          }
+        });
+      }
+
       /* Controls Initialization */
-      const scrubCtrl = createFluidSlider(document.getElementById("scrubSlider"), {
+      const scrubCtrl = createFluidSlider(scrubSliderEl, {
         initial: 0,
         onDragStart() {
           wasPlayingBeforeScrub = isPlaying;
@@ -1681,19 +2013,23 @@
             videoEl.pause();
           }
           if (dur > 0) {
-            // Keep time readout synced on initial press
             dirtyRender = true;
           }
         },
         onInput(norm) {
+          const clamped = Math.max(state.trimIn, Math.min(state.trimOut, norm));
+          if (clamped !== norm) {
+            scrubCtrl.setValue(clamped);
+          }
           hasPrevFrame = false;
           dirtyRender = true;
           const dur = getClipDuration();
-          scrubPreviewTime = norm * dur;
+          scrubPreviewTime = clamped * dur;
+          syncTrimVisuals(clamped);
           if (sourceKind === "video" && Number.isFinite(videoEl.duration)) {
-            requestVideoSeek(norm * videoEl.duration);
+            requestVideoSeek(clamped * videoEl.duration);
           } else if (sourceKind === "demo") {
-            demoTime = norm * dur;
+            demoTime = clamped * dur;
           }
         },
         onDragEnd() {
@@ -1713,6 +2049,10 @@
         }
       });
 
+      bindTrimHandle(trimInHandleEl, "in");
+      bindTrimHandle(trimOutHandleEl, "out");
+      syncTrimVisuals(0);
+
       createFluidSlider(document.getElementById("sharpSlider"), {
         initial: 0.60 / 1.50,
         onInput(norm) {
@@ -1723,7 +2063,7 @@
         }
       });
 
-      createFluidSlider(document.getElementById("tolSlider"), {
+      const tolCtrl = createFluidSlider(document.getElementById("tolSlider"), {
         initial: 10 / 26,
         onInput(norm) {
           state.tol = Math.round(norm * 26);
@@ -1739,6 +2079,14 @@
         dirtyRender = true;
       });
 
+      initSegmentedControl(document.querySelector('[data-seg="framing"]'), (val) => {
+        state.framing = val;
+        document.getElementById("framingHint").textContent = val === "fill" ? "Center crop" : "Letterbox";
+        hasPrevFrame = false;
+        dirtyRender = true;
+        emaBytesPerFrame = 0;
+      });
+
       initSegmentedControl(document.querySelector('[data-seg="grid"]'), (val) => {
         const [w, h] = val.split("x").map(Number);
         state.gridW = w;
@@ -1752,6 +2100,12 @@
         state.fps = Number(val);
         dirtyRender = true;
         emaBytesPerFrame = 0;
+        syncTrimVisuals();
+      });
+
+      initSegmentedControl(document.querySelector('[data-seg="budget"]'), (val) => {
+        state.budgetMb = Number(val);
+        document.getElementById("budgetHint").textContent = `Max ${state.budgetMb} MB`;
       });
 
       function setPlayIcon(playing) {
@@ -1772,11 +2126,12 @@
       document.getElementById("restartBtn").addEventListener("click", () => {
         hasPrevFrame = false;
         dirtyRender = true;
+        const [trimStart] = getTrimBoundsSec();
         if (sourceKind === "video") {
-          requestVideoSeek(0);
+          requestVideoSeek(trimStart);
           if (isPlaying) videoEl.play().catch(() => {});
         } else {
-          demoTime = 0;
+          demoTime = trimStart;
         }
       });
 
@@ -1805,6 +2160,7 @@
           img.onload = () => {
             loadedImage = img;
             resetCodecBuffers();
+            resetTrimRange();
             setSourceFeedback(`${file.name} (${img.naturalWidth}×${img.naturalHeight})`);
           };
           img.onerror = () => setSourceFeedback("Could not decode image file — try PNG or JPEG.", true);
@@ -1816,6 +2172,7 @@
           videoEl.onloadedmetadata = () => {
             sourceKind = "video";
             resetCodecBuffers();
+            resetTrimRange();
             isPlaying = true;
             setPlayIcon(true);
             videoEl.play().catch(() => {});
@@ -1827,6 +2184,7 @@
               loadedImage = img;
               sourceKind = "image";
               resetCodecBuffers();
+              resetTrimRange();
               setSourceFeedback(`${file.name} (${img.naturalWidth}×${img.naturalHeight})`);
             };
             img.onerror = () => setSourceFeedback("Unsupported media format — drop MP4, WebM, PNG, or JPEG.", true);
@@ -1853,6 +2211,7 @@
         sourceKind = "demo";
         demoTime = 0;
         resetCodecBuffers();
+        resetTrimRange();
         isPlaying = true;
         setPlayIcon(true);
         document.getElementById("browseBtn").classList.remove("is-selected");
@@ -1884,6 +2243,7 @@
           img.onload = () => {
             loadedImage = img;
             resetCodecBuffers();
+            resetTrimRange();
             setSourceFeedback(`Remote image (${img.naturalWidth}×${img.naturalHeight})`);
           };
           img.onerror = () => setSourceFeedback("Remote host blocked CORS — save the file and drop it onto the display.", true);
@@ -1896,6 +2256,7 @@
           videoEl.onloadedmetadata = () => {
             sourceKind = "video";
             resetCodecBuffers();
+            resetTrimRange();
             isPlaying = true;
             setPlayIcon(true);
             videoEl.play().catch(() => {});
@@ -1927,6 +2288,179 @@
         });
       });
 
+      /* Safe hang-free HTML5 video seek helper */
+      function seekVideoSafe(sec) {
+        return new Promise((resolve) => {
+          const dur = Number.isFinite(videoEl.duration) ? videoEl.duration : 0;
+          const target = Math.max(0, Math.min(Math.max(0, dur - 0.001), sec));
+          if (!videoEl.seeking && Math.abs(videoEl.currentTime - target) < 0.0005 && videoEl.readyState >= 2) {
+            resolve();
+            return;
+          }
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            videoEl.removeEventListener("seeked", done);
+            videoEl.removeEventListener("error", done);
+            resolve();
+          };
+          const timer = setTimeout(done, 1200);
+          videoEl.addEventListener("seeked", done);
+          videoEl.addEventListener("error", done);
+          videoEl.currentTime = target;
+        });
+      }
+
+      /* Auto-Fit Tolerance to Target ESP Size Budget */
+      document.getElementById("autoFitBtn").addEventListener("click", async () => {
+        if (isExporting || isAutoFitting) return;
+        const autoBtn = document.getElementById("autoFitBtn");
+        const autoLabel = document.getElementById("autoFitLabel");
+        const expBtn = document.getElementById("exportHeaderBtn");
+
+        if (sourceKind === "image") {
+          state.tol = 0;
+          tolCtrl.setValue(0);
+          document.getElementById("tolOut").textContent = "0";
+          hasPrevFrame = false;
+          dirtyRender = true;
+          setExportStatus("Static image fits easily at tolerance 0 (~95 KB .efi).", "ok");
+          return;
+        }
+
+        autoBtn.disabled = true;
+        expBtn.disabled = true;
+        isAutoFitting = true;
+
+        const wasPlaying = isPlaying;
+        const savedTime = sourceKind === "video" ? (videoEl.currentTime || 0) : demoTime;
+        isPlaying = false;
+        if (sourceKind === "video") videoEl.pause();
+
+        try {
+          const gw = state.gridW, gh = state.gridH, fps = state.fps;
+          const [trimStart, trimEnd] = getTrimBoundsSec();
+          const dur = Math.min(60, Math.max(1 / fps, trimEnd - trimStart));
+          const totalFrames = Math.max(1, Math.round(dur * fps));
+          const frameDt = 1 / fps;
+
+          // Sample keyframe 0 plus up to 16 consecutive frame pairs across the trimmed segment
+          const keyRgb = (await (async () => {
+            if (sourceKind === "video") await seekVideoSafe(trimStart);
+            else demoTime = trimStart;
+            return sampleAndSharpenGrid(gw, gh, state.sharpness);
+          })());
+
+          if (!keyRgb) throw new Error("No frames available");
+
+          const nPairs = Math.min(16, Math.max(0, totalFrames - 1));
+          const pairs = [];
+          for (let p = 0; p < nPairs; p++) {
+            const fIdx = nPairs <= 1 ? 0 : Math.floor((p / nPairs) * (totalFrames - 1));
+            const tA = trimStart + fIdx * frameDt;
+            const tB = Math.min(trimEnd, tA + frameDt);
+
+            if (sourceKind === "video") await seekVideoSafe(tA);
+            else demoTime = tA;
+            const rgbA = sampleAndSharpenGrid(gw, gh, state.sharpness);
+
+            if (sourceKind === "video") await seekVideoSafe(tB);
+            else demoTime = tB;
+            const rgbB = sampleAndSharpenGrid(gw, gh, state.sharpness);
+
+            if (rgbA && rgbB) pairs.push([rgbA, rgbB]);
+
+            if (p % 2 === 0 || p + 1 === nPairs) {
+              const pct = Math.round(((p + 1) / Math.max(1, nPairs)) * 100);
+              autoLabel.textContent = `Sampling ${pct}%…`;
+              await new Promise((r) => setTimeout(r, 0));
+            }
+          }
+
+          // Evaluate all tolerances 0..26 in RAM (< 8 ms) to pick the sharpest fit
+          const maxBytes = state.budgetMb * 1024 * 1024;
+          const nCells = gw * gh;
+          const keyIdx = new Uint8Array(nCells);
+          for (let i = 0; i < nCells; i++) {
+            keyIdx[i] = nearest255Index(keyRgb[i * 3], keyRgb[i * 3 + 1], keyRgb[i * 3 + 2]);
+          }
+          let keyRuns = 1, curK = keyIdx[0], lenK = 1;
+          for (let i = 1; i < nCells; i++) {
+            if (keyIdx[i] === curK && lenK < 255) lenK++;
+            else { keyRuns++; curK = keyIdx[i]; lenK = 1; }
+          }
+          const keyBytes = keyRuns * 2 + 4;
+
+          const pairPrevIdx = pairs.map(([rgbA]) => {
+            const arr = new Uint8Array(nCells);
+            for (let i = 0; i < nCells; i++) {
+              arr[i] = nearest255Index(rgbA[i * 3], rgbA[i * 3 + 1], rgbA[i * 3 + 2]);
+            }
+            return arr;
+          });
+
+          let bestTol = 26;
+          let bestEstBytes = 0;
+          const emitBuf = new Uint8Array(nCells);
+
+          for (let tol = 0; tol <= 26; tol++) {
+            let sumDeltaBytes = 0;
+            for (let p = 0; p < pairs.length; p++) {
+              const prevArr = pairPrevIdx[p];
+              const rgbB = pairs[p][1];
+              for (let i = 0; i < nCells; i++) {
+                const r = rgbB[i * 3], g = rgbB[i * 3 + 1], b = rgbB[i * 3 + 2];
+                const idx = nearest255Index(r, g, b);
+                const pIdx = prevArr[i];
+                const pc = PAL255[pIdx];
+                const maxDiff = Math.max(Math.abs(r - pc[0]), Math.abs(g - pc[1]), Math.abs(b - pc[2]));
+                emitBuf[i] = (idx === pIdx || maxDiff <= tol) ? 255 : idx;
+              }
+              let runs = 1, cur = emitBuf[0], ln = 1;
+              for (let i = 1; i < nCells; i++) {
+                if (emitBuf[i] === cur && ln < 255) ln++;
+                else { runs++; cur = emitBuf[i]; ln = 1; }
+              }
+              sumDeltaBytes += runs * 2 + 4;
+            }
+            const avgDeltaBytes = pairs.length > 0 ? (sumDeltaBytes / pairs.length) : keyBytes;
+            const estBytes = 36864 + 1024 + keyBytes + Math.max(0, totalFrames - 1) * avgDeltaBytes;
+            bestTol = tol;
+            bestEstBytes = estBytes;
+            if (estBytes <= maxBytes) break;
+          }
+
+          state.tol = bestTol;
+          tolCtrl.setValue(bestTol / 26);
+          document.getElementById("tolOut").textContent = String(bestTol);
+          emaBytesPerFrame = (bestEstBytes - 37888) / Math.max(1, totalFrames);
+          const estMb = bestEstBytes / (1024 * 1024);
+          document.getElementById("statEfiSize").textContent = estMb >= 1 ? `${estMb.toFixed(2)} MB` : `${(bestEstBytes / 1024).toFixed(0)} KB`;
+
+          if (bestEstBytes <= maxBytes) {
+            setExportStatus(`Matched ${state.budgetMb} MB budget at tolerance ${bestTol} (~${estMb.toFixed(2)} MB .efi).`, "ok");
+          } else {
+            setExportStatus(`Tolerance 26 reaches ~${estMb.toFixed(2)} MB — trim clip shorter or switch to 200×112.`, "err");
+          }
+
+          if (sourceKind === "video") await seekVideoSafe(savedTime);
+          else demoTime = savedTime;
+          hasPrevFrame = false;
+          dirtyRender = true;
+        } catch (err) {
+          setExportStatus("Could not sample video frames (CORS blocked) — drop a local file.", "err");
+        } finally {
+          isAutoFitting = false;
+          autoBtn.disabled = false;
+          expBtn.disabled = false;
+          autoLabel.textContent = "Auto-Fit Tolerance to Budget";
+          isPlaying = wasPlaying;
+          if (wasPlaying && sourceKind === "video") videoEl.play().catch(() => {});
+        }
+      });
+
       /* Export C17 Header */
       function setExportStatus(text, kind = "") {
         const el = document.getElementById("exportStatus");
@@ -1935,16 +2469,20 @@
       }
 
       document.getElementById("exportHeaderBtn").addEventListener("click", async () => {
+        if (isExporting || isAutoFitting) return;
         const btn = document.getElementById("exportHeaderBtn");
+        const autoBtn = document.getElementById("autoFitBtn");
         const label = document.getElementById("exportBtnLabel");
         const fill = document.getElementById("exportProgressFill");
         btn.disabled = true;
+        autoBtn.disabled = true;
         fill.style.width = "0%";
 
         try {
           isExporting = true;
           const gw = state.gridW, gh = state.gridH, fps = state.fps;
-          const dur = Math.min(40, getClipDuration());
+          const [trimStart, trimEnd] = getTrimBoundsSec();
+          const dur = Math.min(60, Math.max(1 / fps, trimEnd - trimStart));
           const totalFrames = sourceKind === "image" ? 1 : Math.max(1, Math.round(dur * fps));
           const wasPlaying = isPlaying;
           isPlaying = false;
@@ -1955,13 +2493,9 @@
           prevScreenIdx = new Uint8Array(gw * gh);
 
           for (let f = 0; f < totalFrames; f++) {
-            const t = f / fps;
+            const t = trimStart + (f / fps);
             if (sourceKind === "video") {
-              await new Promise((resolve) => {
-                const onSeek = () => { videoEl.removeEventListener("seeked", onSeek); resolve(); };
-                videoEl.addEventListener("seeked", onSeek);
-                videoEl.currentTime = Math.min(t, Math.max(0, videoEl.duration - 0.001));
-              });
+              await seekVideoSafe(t);
             } else if (sourceKind === "demo") {
               demoTime = t;
             }
@@ -2031,6 +2565,7 @@
         } finally {
           isExporting = false;
           btn.disabled = false;
+          autoBtn.disabled = false;
           setTimeout(() => {
             fill.style.width = "0%";
             label.textContent = "Export video_frames.h";
@@ -2094,12 +2629,23 @@
       /* Main Display-Synced Render Loop */
       function tick(now) {
         requestAnimationFrame(tick);
-        if (isExporting) return;
+        if (isExporting || isAutoFitting) return;
         const wallDt = Math.min(0.1, Math.max(0, (now - lastWallTime) / 1000));
         lastWallTime = now;
 
-        if (isPlaying && sourceKind === "demo" && !scrubCtrl.isDragging) {
-          demoTime = (demoTime + wallDt) % DEMO_DURATION;
+        const [trimStart, trimEnd] = getTrimBoundsSec();
+        if (isPlaying && !scrubCtrl.isDragging && !isTrimHandleDragging) {
+          if (sourceKind === "demo") {
+            demoTime += wallDt;
+            if (demoTime >= trimEnd || demoTime < trimStart) {
+              demoTime = trimStart;
+              hasPrevFrame = false;
+            }
+          } else if (sourceKind === "video" && Number.isFinite(videoEl.duration) && videoEl.duration > 0) {
+            if (videoEl.currentTime >= trimEnd - 0.015 || videoEl.currentTime < trimStart - 0.05) {
+              requestVideoSeek(trimStart);
+            }
+          }
         }
 
         const period = 1000 / state.fps;
@@ -2107,18 +2653,20 @@
         if (dt < period && !dirtyRender) return;
         lastFrameTick = now - (dt % period);
 
-        const activeMotion = (isPlaying && sourceKind !== "image") || scrubCtrl.isDragging;
+        const activeMotion = (isPlaying && sourceKind !== "image") || scrubCtrl.isDragging || isTrimHandleDragging;
         if (!activeMotion && !dirtyRender) return;
         const shouldSampleRle = activeMotion || !hasPrevFrame;
         dirtyRender = false;
 
-        const curT = scrubCtrl.isDragging
+        const curT = (scrubCtrl.isDragging || isTrimHandleDragging)
           ? scrubPreviewTime
           : (sourceKind === "video" ? (videoEl.currentTime || 0) : (sourceKind === "image" ? 0 : demoTime));
         const durT = getClipDuration();
         document.getElementById("timeReadout").textContent = `${formatSec(curT)} / ${formatSec(durT)}`;
-        if (durT > 0 && !scrubCtrl.isDragging) {
-          scrubCtrl.setValue(curT / durT);
+        if (durT > 0 && !scrubCtrl.isDragging && !isTrimHandleDragging) {
+          const curNorm = curT / durT;
+          scrubCtrl.setValue(curNorm);
+          syncTrimVisuals(curNorm);
         }
 
         const gridRgb = sampleAndSharpenGrid(state.gridW, state.gridH, state.sharpness);

@@ -9,13 +9,13 @@
 
 ![Demo](assets/demo.gif)
 
-> **Interactive Browser Studio & Converter:** [**https://wioledead.github.io/uefi-gop-video-boot/**](https://wioledead.github.io/uefi-gop-video-boot/) — test `GOP->Blt()` 255-color scanlines, half-blocks, and 16-color ASCII in real time, inspect Temporal-RLE `.efi` size, and export a ready-to-compile `video_frames.h` directly in your browser.
+> **Interactive Browser Studio & Converter:** [**https://wioledead.github.io/uefi-gop-video-boot/**](https://wioledead.github.io/uefi-gop-video-boot/) — trim `In / Out` clip ranges, switch `Fit` vs `Fill 16:9` framing, auto-fit tolerance to an ESP megabyte budget, test `GOP->Blt()` 255-color scanlines in real time, and export a ready-to-compile `video_frames.h` directly in your browser.
 
 A freestanding **x86_64 UEFI pre-boot application** (`bootx64.efi` / `grubx64.efi`) written in pure C with **zero external runtime dependencies**. Designed as a drop-in stage for [HackBGRT](https://github.com/Metabolix/HackBGRT) or standalone UEFI boot chains, it replaces the static vendor POST experience with:
 
-1. **Stage 1 — Rapid Linux Kernel `dmesg` Stream** (~1.2s, 56 hardware-realistic lines with `RDTSC` microsecond jitter).
+1. **Stage 1 — Live Hardware-Probed Linux `dmesg` Stream** (~1.2s, populated dynamically via `CPUID`, calibrated `RDTSC` MHz, `SMBIOS/DMI` motherboard info, `ACPI RSDP/XSDT` physical addresses with `Intel DMAR` / `AMD-Vi IVRS` auto-detection, `GetMemoryMap` `BIOS-e820` ranges & GiB RAM summary, and `efifb` GOP BAR).
 2. **Stage 2 — Colored `systemd` Dependency Graph** (~3.5s, 50 units with burst/normal/hitch pacing and device highlights).
-3. **Stage 3 — Full-Screen 24-bit TrueColor `GOP->Blt()` Video Player** (`320×180` tile grid scaled integer-exact to `1920×1080` / `2560×1440` / `3840×2160` at hardware-calibrated `24 FPS`, instant any-key skip).
+3. **Stage 3 — Full-Screen 24-bit TrueColor `GOP->Blt()` Video Player** (`320×180` tile grid scaled integer-exact to `1920×1080` / `2560×1440` / `3840×2160` at hardware-calibrated `24 FPS`, with interactive pause, Temporal-RLE frame/time seeking, scanline toggle, and `F2`/`Del` reboot-to-BIOS).
 4. **Stage 4 — Loop-Safe Chainloader** handing control to original HackBGRT (`grubx64.efi.bak` → custom `ACPI BGRT` `splash.bmp`) and Windows Boot Manager (`bootmgfw.efi`).
 
 ---
@@ -27,12 +27,13 @@ A freestanding **x86_64 UEFI pre-boot application** (`bootx64.efi` / `grubx64.ef
 | **Target Architecture** | `x86_64` PE32+ (`Subsystem 0x0A: EFI_APPLICATION`), MS x64 ABI |
 | **Build Dependencies** | Zero external libs (`src/uefi_compat.h` standalone **or** system `gnu-efi` headers) |
 | **Compilers Supported** | `x86_64-w64-mingw32-gcc` (Windows / MSYS2 / WSL) and `clang + lld` |
-| **Console Unlock** | Bypasses `ConSplitterDxe` `80×25` serial caps by probing GOP-backed `GraphicsConsoleDxe` handles |
+| **Console Unlock** | Bypasses `ConSplitterDxe` `80×25` serial caps by binding directly to physical `DevicePath`-backed `GOP` & `GraphicsConsoleDxe` |
+| **Hardware Telemetry** | Live `CPUID` brand/threads/ISA (`AES-NI`/`AVX2`/`AVX-512`/`SHA-NI`), `SMBIOS/DMI`, `ACPI XSDT`, `GetMemoryMap`, `efifb` |
 | **Video Codec** | 255-color adaptive 24-bit RGB (`MedianCut + K-Means`) + **Temporal-Delta RLE** (`UINT16` tokens) |
 | **Grid & Scaling** | `320×180` (`16:9`) → `6×` = `1920×1080`, `8×` = `2560×1440`, `12×` = `3840×2160` (borderless) |
 | **Pixel Blitter** | Unrolled 64-bit (`UINT64` = 2 pixels/store) offscreen render + dirty-band `GOP->Blt(EfiBltBufferToVideo)` |
 | **Frame Timing** | Live `RDTSC` calibrated over `BS->Stall(20000)` to subtract actual render/PCIe time per frame |
-| **Input & Skip** | Non-blocking `ConIn->ReadKeyStroke` polled twice per frame (instant skip on `Space` / `Enter` / `Esc`) |
+| **Interactive Controls** | Skip (`Space`/`Enter`/`Esc`), intro skip (`Tab`), pause (`P`), seek `±2s` (`←`/`→`), step `±1f` (`,`/`.` ), scanlines (`S`), UEFI Setup (`F2`/`Del`) |
 | **Secure Boot** | Embedded `.sbat` section compatible with Red Hat `shim` 15+ / 16+ & `MokManager` hash enrollment |
 | **Footprint** | `~135 KB` (built-in 3s procedural demo) / `~8–13 MB` (30–35s `320×180` @ 24 FPS custom video) |
 
@@ -81,7 +82,36 @@ make TOOLCHAIN=clang GNUEFI_INC=/usr/include/efi
 
 Build outputs are placed in `efi/bootx64.efi`, `efi/grubx64.efi`, and `efi/loader.efi`.
 
-> **Tip:** To jump straight into the video without the 4.5-second Linux `dmesg`/`systemd` intro, set `#define ENABLE_LINUX_INTRO 0` at the top of `src/main.c`.
+> **Tip:** To jump straight into the video without the 4.5-second Linux `dmesg`/`systemd` intro, press `Tab` during boot or set `#define ENABLE_LINUX_INTRO 0` at the top of `src/main.c`.
+
+### Interactive Pre-Boot Hotkeys
+
+| Key | Stage | Action |
+| :--- | :--- | :--- |
+| `Space` / `Enter` / `Esc` / `Q` | Any (`dmesg`, `systemd`, Video) | Exit immediately and chainload Windows (`bootmgfw.efi`) |
+| `Tab` | Linux Intro (`dmesg` / `systemd`) | Skip remaining text intro and start `GOP->Blt()` video immediately |
+| `P` | Video Player | Pause / resume playback |
+| `←` / `→` | Video Player | Seek backward / forward `±2 seconds` (exact Temporal-RLE state rebuild) |
+| `,` / `.` | Video Player | Step `-1` / `+1` single frame (automatically pauses) |
+| `R` / `Home` | Video Player | Restart video from frame `0` |
+| `S` | Video Player | Toggle CRT scanline shading live |
+| `F2` / `Del` | Any (`dmesg`, `systemd`, Video) | Set `EFI_OS_INDICATIONS_BOOT_TO_FW_UI` in NVRAM and reboot straight into UEFI BIOS Setup |
+
+### Zero-Reboot Testing in QEMU + OVMF
+
+Test the full UEFI boot flow (`dmesg` → `systemd` → `1920×1080` `GOP->Blt()` → chainload handoff) in a desktop window in ~2 seconds without rebooting your PC. `tools/run_qemu.py` packs a spec-compliant `MBR + FAT32` ESP image (`efi/esp_qemu.img`) in pure Python stdlib (no admin rights required) alongside a mock `\EFI\Microsoft\Boot\bootmgfw.efi` chainload verifier:
+
+```powershell
+# Install QEMU (includes OVMF edk2-x86_64-code.fd firmware on Windows)
+winget install SoftwareFreedomConservancy.QEMU
+
+# Build and boot in QEMU + OVMF (1920x1080 GOP over virtual NVMe)
+mingw32-make qemu
+
+# Instant <1s rebuild & boot using the built-in 3s procedural demo
+mingw32-make qemu DEMO=1
+```
+*(On Linux/WSL: `sudo apt install -y qemu-system-x86 ovmf && make qemu`.)*
 
 ---
 

@@ -58,13 +58,14 @@ typedef UINT64    EFI_VIRTUAL_ADDRESS;
 #define TRUE  ((BOOLEAN)1)
 #endif
 
-#define EFI_ERROR_BIT        ((UINTN)1 << (sizeof(UINTN) * 8 - 1))
-#define EFI_ERROR(s)         (((INTN)(s)) < 0)
-#define EFI_SUCCESS          ((EFI_STATUS)0)
-#define EFI_LOAD_ERROR       (EFI_ERROR_BIT | 1)
+#define EFI_ERROR_BIT         ((UINTN)1 << (sizeof(UINTN) * 8 - 1))
+#define EFI_ERROR(s)          (((INTN)(s)) < 0)
+#define EFI_SUCCESS           ((EFI_STATUS)0)
+#define EFI_LOAD_ERROR        (EFI_ERROR_BIT | 1)
 #define EFI_INVALID_PARAMETER (EFI_ERROR_BIT | 2)
-#define EFI_UNSUPPORTED      (EFI_ERROR_BIT | 3)
-#define EFI_NOT_FOUND        (EFI_ERROR_BIT | 14)
+#define EFI_UNSUPPORTED       (EFI_ERROR_BIT | 3)
+#define EFI_BUFFER_TOO_SMALL  (EFI_ERROR_BIT | 5)
+#define EFI_NOT_FOUND         (EFI_ERROR_BIT | 14)
 
 typedef struct {
     UINT32 Data1;
@@ -243,6 +244,23 @@ typedef struct {
 #define IsDevicePathEndSubType(a)   ((a)->SubType == END_ENTIRE_DEVICE_PATH_SUBTYPE)
 #define IsDevicePathEnd(a)          (IsDevicePathEndType(a) && IsDevicePathEndSubType(a))
 
+typedef struct {
+    UINT32                Type;
+    UINT32                Pad;
+    EFI_PHYSICAL_ADDRESS  PhysicalStart;
+    EFI_VIRTUAL_ADDRESS   VirtualStart;
+    UINT64                NumberOfPages;
+    UINT64                Attribute;
+} EFI_MEMORY_DESCRIPTOR;
+
+typedef EFI_STATUS (EFIAPI *EFI_GET_MEMORY_MAP)(
+    IN OUT UINTN *MemoryMapSize,
+    IN OUT EFI_MEMORY_DESCRIPTOR *MemoryMap,
+    OUT UINTN *MapKey,
+    OUT UINTN *DescriptorSize,
+    OUT UINT32 *DescriptorVersion
+);
+
 /* Boot Services Table (exact UEFI 2.x layout & offsets) */
 typedef EFI_STATUS (EFIAPI *EFI_ALLOCATE_POOL)(
     IN EFI_MEMORY_TYPE PoolType,
@@ -307,7 +325,7 @@ typedef struct {
     /* Memory Services */
     VOID                 *AllocatePages;
     VOID                 *FreePages;
-    VOID                 *GetMemoryMap;
+    EFI_GET_MEMORY_MAP   GetMemoryMap;
     EFI_ALLOCATE_POOL    AllocatePool;
     EFI_FREE_POOL        FreePool;
     /* Event & Timer Services */
@@ -358,6 +376,66 @@ typedef struct {
     VOID                 *CreateEventEx;
 } EFI_BOOT_SERVICES;
 
+/* Runtime Services & Configuration Table (UEFI 2.x) */
+typedef enum {
+    EfiResetCold,
+    EfiResetWarm,
+    EfiResetShutdown,
+    EfiResetPlatformSpecific
+} EFI_RESET_TYPE;
+
+typedef EFI_STATUS (EFIAPI *EFI_GET_VARIABLE)(
+    IN CHAR16 *VariableName,
+    IN EFI_GUID *VendorGuid,
+    OUT UINT32 *Attributes OPTIONAL,
+    IN OUT UINTN *DataSize,
+    OUT VOID *Data OPTIONAL
+);
+
+typedef EFI_STATUS (EFIAPI *EFI_SET_VARIABLE)(
+    IN CHAR16 *VariableName,
+    IN EFI_GUID *VendorGuid,
+    IN UINT32 Attributes,
+    IN UINTN DataSize,
+    IN VOID *Data
+);
+
+typedef VOID (EFIAPI *EFI_RESET_SYSTEM)(
+    IN EFI_RESET_TYPE ResetType,
+    IN EFI_STATUS ResetStatus,
+    IN UINTN DataSize,
+    IN VOID *ResetData OPTIONAL
+);
+
+typedef struct {
+    EFI_TABLE_HEADER Hdr;
+    /* Time Services */
+    VOID             *GetTime;
+    VOID             *SetTime;
+    VOID             *GetWakeupTime;
+    VOID             *SetWakeupTime;
+    /* Virtual Memory Services */
+    VOID             *SetVirtualAddressMap;
+    VOID             *ConvertPointer;
+    /* Variable Services */
+    EFI_GET_VARIABLE GetVariable;
+    VOID             *GetNextVariableName;
+    EFI_SET_VARIABLE SetVariable;
+    /* Miscellaneous Services */
+    VOID             *GetNextHighMonotonicCount;
+    EFI_RESET_SYSTEM ResetSystem;
+    /* UEFI 2.0 Capsule Services */
+    VOID             *UpdateCapsule;
+    VOID             *QueryCapsuleCapabilities;
+    /* Miscellaneous UEFI 2.0 Service */
+    VOID             *QueryVariableInfo;
+} EFI_RUNTIME_SERVICES;
+
+typedef struct {
+    EFI_GUID VendorGuid;
+    VOID     *VendorTable;
+} EFI_CONFIGURATION_TABLE;
+
 typedef struct {
     EFI_TABLE_HEADER              Hdr;
     CHAR16                        *FirmwareVendor;
@@ -368,10 +446,10 @@ typedef struct {
     SIMPLE_TEXT_OUTPUT_INTERFACE  *ConOut;
     EFI_HANDLE                    StandardErrorHandle;
     SIMPLE_TEXT_OUTPUT_INTERFACE  *StdErr;
-    VOID                          *RuntimeServices;
+    EFI_RUNTIME_SERVICES          *RuntimeServices;
     EFI_BOOT_SERVICES             *BootServices;
     UINTN                         NumberOfTableEntries;
-    VOID                          *ConfigurationTable;
+    EFI_CONFIGURATION_TABLE       *ConfigurationTable;
 } EFI_SYSTEM_TABLE;
 
 /* Loaded Image Protocol */
@@ -534,3 +612,50 @@ typedef struct _EFI_GRAPHICS_OUTPUT_PROTOCOL {
 } EFI_GRAPHICS_OUTPUT_PROTOCOL;
 
 #endif /* USE_GNUEFI || __has_include(<efi.h>) */
+
+/* Key scan codes, NVRAM variable attributes & firmware table GUIDs */
+#ifndef SCAN_NULL
+#define SCAN_NULL        0x0000
+#endif
+#ifndef SCAN_UP
+#define SCAN_UP          0x0001
+#define SCAN_DOWN        0x0002
+#define SCAN_RIGHT       0x0003
+#define SCAN_LEFT        0x0004
+#define SCAN_HOME        0x0005
+#define SCAN_END         0x0006
+#define SCAN_INSERT      0x0007
+#define SCAN_DELETE      0x0008
+#define SCAN_PAGE_UP     0x0009
+#define SCAN_PAGE_DOWN   0x000A
+#define SCAN_F1          0x000B
+#define SCAN_F2          0x000C
+#endif
+#ifndef SCAN_ESC
+#define SCAN_ESC         0x0017
+#endif
+
+#ifndef EFI_GLOBAL_VARIABLE_GUID
+#define EFI_GLOBAL_VARIABLE_GUID \
+    { 0x8be4df61, 0x93ca, 0x11d2, { 0xaa, 0x0d, 0x00, 0xe0, 0x98, 0x03, 0x2b, 0x8c } }
+#endif
+
+#ifndef EFI_VARIABLE_NON_VOLATILE
+#define EFI_VARIABLE_NON_VOLATILE       0x00000001U
+#define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x00000002U
+#define EFI_VARIABLE_RUNTIME_ACCESS     0x00000004U
+#endif
+
+#ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
+#define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
+#endif
+
+#define EFI_ACPI_20_TABLE_GUID_CONST \
+    { 0x8868e871, 0xe4f1, 0x11d3, { 0xbc, 0x22, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81 } }
+#define EFI_ACPI_10_TABLE_GUID_CONST \
+    { 0xeb9d2d30, 0x2d88, 0x11d3, { 0x9a, 0x16, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d } }
+#define EFI_SMBIOS3_TABLE_GUID_CONST \
+    { 0xf2fd1544, 0x9794, 0x4a2c, { 0x99, 0x2e, 0xe5, 0xbb, 0xcf, 0x20, 0xe3, 0x94 } }
+#define EFI_SMBIOS_TABLE_GUID_CONST \
+    { 0xeb9d2d31, 0x2d88, 0x11d3, { 0x9a, 0x16, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d } }
+
